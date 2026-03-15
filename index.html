@@ -880,6 +880,112 @@
       rect(88,by-2,8,1,'#ddcc44');
       px(96,by-2,'#333');
 
+      // ====== THEO THE RACCOON ======
+      // Standing at the bench, facing left, carving the wood block
+      const tx=68, ty=by-8; // anchor = hands on bench level
+
+      // Tail (behind body, hangs down with slight wag)
+      const wag=Math.sin(t*0.1)*1.5;
+      for(let i=0;i<7;i++){
+        const tailX=tx+10+i*1.2+wag*(i/7);
+        const tailY=ty+10+i*2.5;
+        const stripe=i%2===0;
+        for(let d=-1;d<=1;d++){
+          px(Math.round(tailX),Math.round(tailY)+d, stripe?'#807e8c':'#4a4858');
+        }
+        px(Math.round(tailX)-1,Math.round(tailY), stripe?'#6a6878':'#3e3c4a');
+      }
+
+      // Body (facing left, slight hunch over bench)
+      for(let dy=0;dy<16;dy++){
+        const w=dy<3?3+dy:(dy>13?7-(dy-13)*2:6);
+        for(let dx=-w;dx<=w;dx++){
+          px(tx+4+dx, ty+dy+2, Math.abs(dx)>=w?'#5c5a68':'#7a7888');
+        }
+      }
+      // belly lighter
+      for(let dy=4;dy<14;dy++){
+        for(let dx=-2;dx<=2;dx++) px(tx+2+dx,ty+dy+2,'#8a889a');
+      }
+      // shoulder highlight (lamp light from above)
+      for(let dy=1;dy<6;dy++){
+        px(tx+4-5,ty+dy+2,'#9a98a8');
+        px(tx+4-4,ty+dy+2,'#908e9c');
+      }
+
+      // Head (turned left, looking at work)
+      for(let dy=-7;dy<=0;dy++){
+        const r=dy<-5?3+(dy+7):(dy>-2?5-(0-dy)*1:5);
+        for(let dx=-r;dx<=r;dx++){
+          px(tx+dx, ty+dy+2, Math.abs(dx)>=r?'#6a6878':'#807e8c');
+        }
+      }
+      // snout (pointing left)
+      px(tx-6,ty-3,'#908e9c');px(tx-6,ty-2,'#908e9c');
+      px(tx-7,ty-3,'#908e9c');
+      px(tx-7,ty-2,'#222'); // nose
+
+      // Ears
+      px(tx-3,ty-7,'#6a6878');px(tx-2,ty-8,'#6a6878');px(tx-2,ty-7,'#cc8888');
+      px(tx+3,ty-7,'#6a6878');px(tx+4,ty-8,'#6a6878');px(tx+4,ty-7,'#cc8888');
+
+      // Raccoon mask
+      px(tx-4,ty-4,'#2a2830');px(tx-5,ty-4,'#2a2830');
+      px(tx-4,ty-3,'#2a2830');px(tx-5,ty-3,'#2a2830');
+      // eye in mask
+      const blink=t%90<3;
+      if(!blink){
+        px(tx-4,ty-4,'#ffeecc'); // warm lamp light reflection
+        px(tx-5,ty-4,'#ddccaa');
+      }
+      // right mask patch
+      px(tx+2,ty-4,'#2a2830');px(tx+3,ty-4,'#2a2830');
+      if(!blink) px(tx+2,ty-4,'#eeddbb');
+
+      // nose bridge light stripe
+      px(tx-2,ty-4,'#b0aebe');px(tx-1,ty-4,'#b0aebe');
+
+      // Arms - carving animation!
+      const carving=t%16<8; // alternating carve motion
+      // left arm (holding chisel on wood)
+      px(tx-2,ty+6,'#7a7888');px(tx-3,ty+7,'#7a7888');
+      px(tx-4,ty+8,'#a09eae'); // paw
+      px(tx-5,ty+8,'#a09eae');
+      // chisel in hand going to wood
+      rect(tx-8,ty+7,4,1,'#aaa');
+      px(tx-9,ty+7,'#ccc'); // chisel tip on wood
+
+      // right arm (hammer/mallet) - animated!
+      const armUp=carving?-4:0;
+      px(tx+2,ty+5,'#7a7888');px(tx+3,ty+4+armUp,'#7a7888');
+      px(tx+4,ty+3+armUp,'#a09eae'); // paw
+      // mallet in hand
+      rect(tx+3,ty+1+armUp,2,3,'#8a7a60');
+      rect(tx+2,ty-1+armUp,4,3,'#666');
+      rect(tx+2,ty-1+armUp,4,1,'#777');
+
+      // spark/chip when hitting
+      if(!carving && t%16<3){
+        px(tx-9,ty+6,'#ffdd88');
+        px(tx-10,ty+5,'#ffcc66');
+        px(tx-8,ty+5,'#ffdd88');
+      }
+
+      // Legs (standing)
+      rect(tx+1,ty+18,3,8,'#6a6878');
+      rect(tx+5,ty+18,3,8,'#6a6878');
+      // feet
+      rect(tx,ty+26,4,2,'#5c5a68');
+      rect(tx+4,ty+26,4,2,'#5c5a68');
+
+      // Lamp light on Theo's head
+      for(let dy=-8;dy<=2;dy++){
+        for(let dx=-5;dx<=5;dx++){
+          const d=Math.sqrt(dx*dx+dy*dy);
+          if(d<7) px(tx+dx,ty+dy+2,`rgba(255,220,150,${0.02*(1-d/7)})`);
+        }
+      }
+
       // FLOOR
       for(let y=by+56;y<H;y++){
         rect(0,y,W,1,`rgb(${16+Math.floor((y-by-56)*0.3)},${14+Math.floor((y-by-56)*0.2)},${12+Math.floor((y-by-56)*0.1)})`);
