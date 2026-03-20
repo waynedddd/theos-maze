@@ -47,7 +47,7 @@
   .container {
     max-width: 900px;
     margin: 0 auto;
-    padding: 4rem 2rem;
+    padding: 0 2rem 4rem;
   }
 
   /* Language toggle */
@@ -75,7 +75,13 @@
 
   header {
     text-align: center;
-    margin-bottom: 5rem;
+    margin-bottom: 0;
+    position: absolute;
+    top: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    pointer-events: none;
   }
 
   header h1 {
@@ -104,15 +110,16 @@
 
   .maze-canvas {
     position: relative;
-    width: 100%;
-    max-width: 600px;
-    margin: 0 auto 5rem;
-    aspect-ratio: 3/4;
+    width: 100vw;
+    height: 100vh;
+    margin-left: calc(-50vw + 50%);
+    margin-bottom: 4rem;
   }
 
   .maze-canvas canvas {
     width: 100%;
     height: 100%;
+    display: block;
     cursor: pointer;
   }
 
@@ -267,13 +274,12 @@
 <button class="lang-toggle" onclick="toggleLang()">中文</button>
 
 <div class="container">
-  <header>
-    <h1 data-en="THE MAZE" data-zh="迷 宫">THE MAZE</h1>
-    <div class="subtitle" data-en="Roots down, branches out" data-zh="根向下，枝向外">Roots down, branches out</div>
-  </header>
-
   <div class="maze-canvas">
-    <canvas id="maze-tree" width="600" height="800"></canvas>
+    <header>
+      <h1 data-en="THE MAZE" data-zh="迷 宫">THE MAZE</h1>
+      <div class="subtitle" data-en="Roots down, branches out" data-zh="根向下，枝向外">Roots down, branches out</div>
+    </header>
+    <canvas id="maze-tree"></canvas>
     <div class="maze-tooltip" id="maze-tooltip"></div>
   </div>
 
@@ -658,111 +664,113 @@
     const canvas = document.getElementById('maze-tree');
     if(!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = 600, H = 800;
+    let W, H;
     let t = 0;
     let hoverNode = null;
-    const tooltip = document.getElementById('maze-tooltip');
 
-    // Ground line - divides roots from branches
-    const groundY = 520;
+    function resize(){
+      const dpr = window.devicePixelRatio || 1;
+      W = canvas.parentElement.clientWidth;
+      H = canvas.parentElement.clientHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
 
-    // Root nodes (Day 0-25): spiral becoming roots underground
-    // Arranged as a root system spreading downward from center
-    const rootNodes = [
-      {id:'day0', label:'Day 0', x:300,y:780},
-      {id:'day1', label:'Day 1', x:180,y:760},
-      {id:'day2', label:'Day 2', x:420,y:755},
-      {id:'day3', label:'Day 3', x:140,y:730},
-      {id:'day4', label:'Day 4', x:460,y:725},
-      {id:'day5', label:'Day 5', x:220,y:710},
-      {id:'day6', label:'Day 6', x:380,y:705},
-      {id:'day7', label:'Day 7', x:100,y:690}, // day7 not day7
-      {id:'day8', label:'Day 8', x:300,y:700},
-      {id:'day9', label:'Day 9', x:490,y:680},
-      {id:'day10', label:'Day 10', x:160,y:670},
-      {id:'day11', label:'Day 11', x:350,y:675},
-      {id:'day12', label:'Day 12', x:250,y:660},
-      {id:'day13', label:'Day 13', x:440,y:650},
-      {id:'day14', label:'Day 14', x:120,y:640},
-      {id:'day15', label:'Day 15', x:370,y:635},
-      {id:'day16', label:'Day 16', x:210,y:620},
-      {id:'day17', label:'Day 17', x:320,y:615},
-      {id:'day18', label:'Day 18', x:270,y:600},
-      {id:'day19', label:'Day 19', x:400,y:590},
-      {id:'day20', label:'Day 20', x:180,y:580},
-      {id:'day21', label:'Day 21', x:340,y:575},
-      {id:'day22', label:'Day 22', x:250,y:565},
-      {id:'day23', label:'Day 23', x:310,y:555},
-      {id:'day24', label:'Day 24', x:280,y:545},
-      {id:'day25', label:'Day 25', x:300,y:535},
+    function nx(v){ return v * W; }
+    function ny(v){ return v * H; }
+
+    const groundP = 0.65;
+
+    const rootNodesDef = [
+      {id:'day0', label:'Day 0', px:0.50,py:0.97},
+      {id:'day1', label:'Day 1', px:0.30,py:0.95},
+      {id:'day2', label:'Day 2', px:0.70,py:0.94},
+      {id:'day3', label:'Day 3', px:0.23,py:0.91},
+      {id:'day4', label:'Day 4', px:0.77,py:0.90},
+      {id:'day5', label:'Day 5', px:0.37,py:0.88},
+      {id:'day6', label:'Day 6', px:0.63,py:0.88},
+      {id:'day7', label:'Day 7', px:0.17,py:0.86},
+      {id:'day8', label:'Day 8', px:0.50,py:0.87},
+      {id:'day9', label:'Day 9', px:0.82,py:0.85},
+      {id:'day10', label:'Day 10', px:0.27,py:0.83},
+      {id:'day11', label:'Day 11', px:0.58,py:0.84},
+      {id:'day12', label:'Day 12', px:0.42,py:0.82},
+      {id:'day13', label:'Day 13', px:0.73,py:0.81},
+      {id:'day14', label:'Day 14', px:0.20,py:0.80},
+      {id:'day15', label:'Day 15', px:0.62,py:0.79},
+      {id:'day16', label:'Day 16', px:0.35,py:0.77},
+      {id:'day17', label:'Day 17', px:0.53,py:0.77},
+      {id:'day18', label:'Day 18', px:0.45,py:0.75},
+      {id:'day19', label:'Day 19', px:0.67,py:0.74},
+      {id:'day20', label:'Day 20', px:0.30,py:0.72},
+      {id:'day21', label:'Day 21', px:0.57,py:0.72},
+      {id:'day22', label:'Day 22', px:0.42,py:0.71},
+      {id:'day23', label:'Day 23', px:0.52,py:0.69},
+      {id:'day24', label:'Day 24', px:0.47,py:0.68},
+      {id:'day25', label:'Day 25', px:0.50,py:0.67},
     ];
 
-    // Root connections - organic branching paths
     const rootEdges = [
       [0,1],[0,2],[1,3],[2,4],[1,5],[2,6],[3,7],[0,8],[4,9],
       [7,10],[6,11],[5,12],[9,13],[10,14],[11,15],[12,16],[8,17],
       [16,18],[13,19],[14,20],[15,21],[18,22],[17,23],[22,24],[24,25]
     ];
 
-    // Branch nodes (Day 26+): growing upward from the trunk
-    const branchNodes = [
-      {id:'day26', label:'Day 26', x:300, y:490, isMissing:true},
-      {id:'day27', label:'Day 27', x:280, y:430, isCurrent:true},
+    const branchNodesDef = [
+      {id:'day26', label:'Day 26', px:0.50, py:0.61, isMissing:true},
+      {id:'day27', label:'Day 27', px:0.47, py:0.54, isCurrent:true},
     ];
 
-    // Branch connections
-    const branchEdges = [
-      // from trunk top (groundY) to day26, day26 to day27
-      ['trunk',0],[0,1]
-    ];
+    function getNodes(){
+      const roots = rootNodesDef.map(n=>({...n, x:nx(n.px), y:ny(n.py)}));
+      const branches = branchNodesDef.map(n=>({...n, x:nx(n.px), y:ny(n.py)}));
+      return {roots, branches, all:[...roots,...branches]};
+    }
 
-    const allNodes = [...rootNodes, ...branchNodes];
-
-    // Trunk position
-    const trunkX = 300;
-    const trunkTop = groundY - 60;
+    const trunkPx = 0.50;
 
     function drawGround(){
-      // ground gradient
-      for(let y=groundY-3;y<groundY+4;y++){
-        const alpha = Math.max(0, 0.12 - Math.abs(y-groundY)*0.02);
+      const gy = ny(groundP);
+      for(let y=gy-3;y<gy+4;y++){
+        const alpha = Math.max(0, 0.12 - Math.abs(y-gy)*0.02);
         ctx.fillStyle = `rgba(201,168,124,${alpha})`;
         ctx.fillRect(0,y,W,1);
       }
-      // surface line
-      ctx.strokeStyle = 'rgba(201,168,124,0.2)';
+      ctx.strokeStyle = 'rgba(201,168,124,0.15)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(80,groundY);
-      ctx.lineTo(520,groundY);
+      ctx.moveTo(W*0.1, gy);
+      ctx.lineTo(W*0.9, gy);
       ctx.stroke();
     }
 
-    function drawRoots(){
+    function drawRoots(roots){
       ctx.lineWidth = 1;
       for(const [a,b] of rootEdges){
-        const n1 = rootNodes[a], n2 = rootNodes[b];
-        const alpha = 0.08 + 0.04*Math.sin(t*0.005+a+b);
+        const n1 = roots[a], n2 = roots[b];
+        const alpha = 0.06 + 0.03*Math.sin(t*0.005+a+b);
         ctx.strokeStyle = `rgba(201,168,124,${alpha})`;
         ctx.beginPath();
-        const midY = (n1.y+n2.y)/2 + (Math.sin(a*3.1+b*2.7)*15);
+        const midY = (n1.y+n2.y)/2 + Math.sin(a*3.1+b*2.7)*ny(0.02);
         ctx.moveTo(n1.x, n1.y);
-        ctx.quadraticCurveTo((n1.x+n2.x)/2+Math.sin(a+b)*20, midY, n2.x, n2.y);
+        ctx.quadraticCurveTo((n1.x+n2.x)/2+Math.sin(a+b)*nx(0.03), midY, n2.x, n2.y);
         ctx.stroke();
       }
-      // connect day25 to trunk base
-      ctx.strokeStyle = 'rgba(201,168,124,0.12)';
+      ctx.strokeStyle = 'rgba(201,168,124,0.1)';
       ctx.beginPath();
-      ctx.moveTo(rootNodes[25].x, rootNodes[25].y);
-      ctx.lineTo(trunkX, groundY);
+      ctx.moveTo(roots[25].x, roots[25].y);
+      ctx.lineTo(nx(trunkPx), ny(groundP));
       ctx.stroke();
     }
 
-    function drawRootNodes(){
-      for(const n of rootNodes){
-        const isHover = hoverNode === n;
-        const baseAlpha = isHover ? 0.6 : 0.15 + 0.05*Math.sin(t*0.01+n.x*0.1);
-        const r = isHover ? 4 : 2.5;
+    function drawRootNodes(roots){
+      for(const n of roots){
+        const isHover = hoverNode && hoverNode.id === n.id;
+        const baseAlpha = isHover ? 0.6 : 0.12 + 0.04*Math.sin(t*0.01+n.px*10);
+        const r = isHover ? 4 : 2;
         ctx.beginPath();
         ctx.arc(n.x, n.y, r, 0, Math.PI*2);
         ctx.fillStyle = `rgba(201,168,124,${baseAlpha})`;
@@ -773,120 +781,100 @@
           ctx.strokeStyle = 'rgba(201,168,124,0.3)';
           ctx.lineWidth = 1;
           ctx.stroke();
+          ctx.fillStyle = 'rgba(201,168,124,0.5)';
+          ctx.font = `${Math.max(10,W*0.018)}px "JetBrains Mono", monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText(n.label, n.x, n.y-14);
         }
       }
     }
 
     function drawTrunk(){
-      // trunk - thick line from ground to trunkTop, slight curve
-      const sway = Math.sin(t*0.006)*2;
-      ctx.strokeStyle = 'rgba(201,168,124,0.35)';
-      ctx.lineWidth = 4;
+      const sway = Math.sin(t*0.006)*nx(0.005);
+      const gy = ny(groundP);
+      const top = ny(groundP - 0.08);
+      ctx.strokeStyle = 'rgba(201,168,124,0.3)';
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(trunkX, groundY);
-      ctx.quadraticCurveTo(trunkX+sway, (groundY+trunkTop)/2, trunkX+sway*0.5, trunkTop);
+      ctx.moveTo(nx(trunkPx), gy);
+      ctx.quadraticCurveTo(nx(trunkPx)+sway, (gy+top)/2, nx(trunkPx)+sway*0.5, top);
       ctx.stroke();
-
-      // trunk glow
-      ctx.strokeStyle = 'rgba(201,168,124,0.08)';
-      ctx.lineWidth = 12;
+      ctx.strokeStyle = 'rgba(201,168,124,0.06)';
+      ctx.lineWidth = 10;
       ctx.beginPath();
-      ctx.moveTo(trunkX, groundY);
-      ctx.quadraticCurveTo(trunkX+sway, (groundY+trunkTop)/2, trunkX+sway*0.5, trunkTop);
+      ctx.moveTo(nx(trunkPx), gy);
+      ctx.quadraticCurveTo(nx(trunkPx)+sway, (gy+top)/2, nx(trunkPx)+sway*0.5, top);
       ctx.stroke();
     }
 
-    function drawBranches(){
-      const sway = Math.sin(t*0.006)*2;
-      ctx.lineWidth = 2;
-
-      // trunk top to day26
-      const b0 = branchNodes[0];
-      ctx.strokeStyle = b0.isMissing ? 'rgba(201,168,124,0.08)' : 'rgba(201,168,124,0.25)';
+    function drawBranches(branches){
+      const sway = Math.sin(t*0.006)*nx(0.005);
+      const top = ny(groundP - 0.08);
+      ctx.lineWidth = 1.5;
+      const b0 = branches[0];
+      ctx.strokeStyle = b0.isMissing ? 'rgba(201,168,124,0.06)' : 'rgba(201,168,124,0.2)';
       ctx.setLineDash(b0.isMissing ? [3,4] : []);
       ctx.beginPath();
-      ctx.moveTo(trunkX+sway*0.5, trunkTop);
-      ctx.quadraticCurveTo(trunkX-10+sway, (trunkTop+b0.y)/2, b0.x, b0.y);
+      ctx.moveTo(nx(trunkPx)+sway*0.5, top);
+      ctx.quadraticCurveTo(nx(trunkPx)-nx(0.02)+sway, (top+b0.y)/2, b0.x, b0.y);
       ctx.stroke();
       ctx.setLineDash([]);
-
-      // day26 to day27
-      if(branchNodes.length > 1){
-        const b1 = branchNodes[1];
-        ctx.strokeStyle = 'rgba(201,168,124,0.25)';
-        ctx.lineWidth = 2;
+      for(let i=1;i<branches.length;i++){
+        const prev = branches[i-1], curr = branches[i];
+        ctx.strokeStyle = 'rgba(201,168,124,0.2)';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(b0.x, b0.y);
-        ctx.quadraticCurveTo((b0.x+b1.x)/2-15, (b0.y+b1.y)/2, b1.x, b1.y);
+        ctx.moveTo(prev.x, prev.y);
+        ctx.quadraticCurveTo((prev.x+curr.x)/2-nx(0.02), (prev.y+curr.y)/2, curr.x, curr.y);
         ctx.stroke();
       }
     }
 
-    function drawBranchNodes(){
-      for(const n of branchNodes){
-        const isHover = hoverNode === n;
-
+    function drawBranchNodes(branches){
+      for(const n of branches){
+        const isHover = hoverNode && hoverNode.id === n.id;
         if(n.isMissing){
-          // ghost node - dashed circle, flickering
-          const flicker = 0.1 + 0.08*Math.sin(t*0.04);
+          const flicker = 0.08 + 0.06*Math.sin(t*0.04);
           ctx.beginPath();
-          ctx.arc(n.x, n.y, isHover?6:4, 0, Math.PI*2);
+          ctx.arc(n.x, n.y, isHover?5:3, 0, Math.PI*2);
           ctx.strokeStyle = `rgba(201,168,124,${isHover?0.5:flicker})`;
           ctx.lineWidth = 1;
           ctx.setLineDash([2,2]);
           ctx.stroke();
           ctx.setLineDash([]);
-          if(isHover){
-            ctx.beginPath();
-            ctx.arc(n.x, n.y, 10, 0, Math.PI*2);
-            ctx.strokeStyle = 'rgba(201,168,124,0.2)';
-            ctx.stroke();
-          }
         } else if(n.isCurrent){
-          // current node - bright, breathing
           const breath = 0.4 + 0.15*Math.sin(t*0.03);
           ctx.beginPath();
-          ctx.arc(n.x, n.y, isHover?6:4, 0, Math.PI*2);
+          ctx.arc(n.x, n.y, isHover?5:3.5, 0, Math.PI*2);
           ctx.fillStyle = `rgba(201,168,124,${breath})`;
           ctx.fill();
-          // glow
           ctx.beginPath();
-          ctx.arc(n.x, n.y, 10+Math.sin(t*0.03)*3, 0, Math.PI*2);
-          ctx.strokeStyle = `rgba(201,168,124,${breath*0.3})`;
+          ctx.arc(n.x, n.y, 8+Math.sin(t*0.03)*2, 0, Math.PI*2);
+          ctx.strokeStyle = `rgba(201,168,124,${breath*0.25})`;
           ctx.lineWidth = 1;
           ctx.stroke();
-          // label always visible for current
-          ctx.fillStyle = 'rgba(201,168,124,0.5)';
-          ctx.font = '10px "JetBrains Mono", monospace';
-          ctx.textAlign = 'left';
-          ctx.fillText(n.label, n.x+14, n.y+4);
         } else {
-          const alpha = isHover ? 0.6 : 0.3;
           ctx.beginPath();
-          ctx.arc(n.x, n.y, isHover?5:3.5, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(201,168,124,${alpha})`;
+          ctx.arc(n.x, n.y, isHover?5:3, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(201,168,124,${isHover?0.6:0.3})`;
           ctx.fill();
         }
-
-        if(isHover && !n.isCurrent){
-          ctx.fillStyle = 'rgba(201,168,124,0.5)';
-          ctx.font = '10px "JetBrains Mono", monospace';
-          ctx.textAlign = 'center';
-          ctx.fillText(n.label, n.x, n.y-12);
+        if(isHover || n.isCurrent){
+          ctx.fillStyle = `rgba(201,168,124,${n.isCurrent?0.4:0.5})`;
+          ctx.font = `${Math.max(10,W*0.018)}px "JetBrains Mono", monospace`;
+          ctx.textAlign = 'left';
+          ctx.fillText(n.label, n.x+14, n.y+4);
         }
       }
     }
 
-    // Small buds / future branch hints
-    function drawBuds(){
-      const sway = Math.sin(t*0.006)*2;
-      const lastBranch = branchNodes[branchNodes.length-1];
-      // 2-3 tiny dots suggesting future growth
+    function drawBuds(branches){
+      const last = branches[branches.length-1];
       for(let i=1;i<=3;i++){
-        const bx = lastBranch.x + (i%2===0?15:-20)*i + sway;
-        const by = lastBranch.y - 30*i;
-        if(by < 40) break;
-        const alpha = 0.03 + 0.02*Math.sin(t*0.02+i);
+        const bx = last.x + (i%2===0?1:-1)*nx(0.04)*i;
+        const by = last.y - ny(0.04)*i;
+        if(by < ny(0.05)) break;
+        const alpha = 0.02 + 0.015*Math.sin(t*0.02+i);
         ctx.beginPath();
         ctx.arc(bx, by, 1.5, 0, Math.PI*2);
         ctx.fillStyle = `rgba(201,168,124,${alpha})`;
@@ -894,108 +882,116 @@
       }
     }
 
-    // Particles - drifting upward from the trunk like pollen/spores
     const particles = [];
-    for(let i=0;i<15;i++){
+    for(let i=0;i<12;i++){
       particles.push({
-        x: trunkX + (Math.random()-0.5)*80,
-        y: groundY - Math.random()*300,
-        vx: (Math.random()-0.5)*0.2,
-        vy: -0.1 - Math.random()*0.15,
-        size: 0.5+Math.random(),
-        alpha: 0.05+Math.random()*0.1,
+        px: 0.5 + (Math.random()-0.5)*0.12,
+        py: groundP - Math.random()*0.4,
+        vx: (Math.random()-0.5)*0.0003,
+        vy: -0.0001 - Math.random()*0.0002,
+        size: 0.5+Math.random()*0.8,
+        alpha: 0.04+Math.random()*0.06,
         phase: Math.random()*Math.PI*2
       });
     }
 
     function drawParticles(){
       for(const p of particles){
-        p.x += p.vx + Math.sin(t*0.01+p.phase)*0.1;
-        p.y += p.vy;
-        if(p.y < 20 || p.y > groundY){
-          p.y = groundY - 10;
-          p.x = trunkX + (Math.random()-0.5)*60;
+        p.px += p.vx + Math.sin(t*0.01+p.phase)*0.0002;
+        p.py += p.vy;
+        if(p.py < 0.05 || p.py > groundP){
+          p.py = groundP - 0.02;
+          p.px = 0.5 + (Math.random()-0.5)*0.1;
         }
         const a = p.alpha * (0.5+0.5*Math.sin(t*0.02+p.phase));
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+        ctx.arc(nx(p.px), ny(p.py), p.size, 0, Math.PI*2);
         ctx.fillStyle = `rgba(201,168,124,${a})`;
         ctx.fill();
       }
     }
 
-    // Underground label
     function drawLabels(){
-      ctx.fillStyle = 'rgba(90,86,80,0.25)';
-      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.fillStyle = 'rgba(90,86,80,0.2)';
+      ctx.font = `${Math.max(9,W*0.014)}px "JetBrains Mono", monospace`;
       ctx.textAlign = 'center';
-      ctx.fillText('r o o t s', W/2, groundY+20);
+      ctx.fillText('r o o t s', W/2, ny(groundP)+ny(0.025));
+    }
 
-      ctx.fillStyle = 'rgba(201,168,124,0.2)';
-      ctx.fillText('g r o w t h', W/2, trunkTop-20);
+    function drawScrollHint(){
+      const alpha = 0.15 + 0.1*Math.sin(t*0.03);
+      const cy = ny(0.96);
+      ctx.strokeStyle = `rgba(201,168,124,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(W/2-6, cy);
+      ctx.lineTo(W/2, cy+5);
+      ctx.lineTo(W/2+6, cy);
+      ctx.stroke();
     }
 
     function draw(){
       t++;
       ctx.clearRect(0,0,W,H);
-
-      // subtle background gradient
       const bgGrad = ctx.createLinearGradient(0,0,0,H);
       bgGrad.addColorStop(0, '#0c0c0d');
-      bgGrad.addColorStop(groundY/H - 0.01, '#0b0b0c');
-      bgGrad.addColorStop(groundY/H, '#0a0a0b');
+      bgGrad.addColorStop(groundP-0.01, '#0b0b0c');
+      bgGrad.addColorStop(groundP, '#0a0a0b');
       bgGrad.addColorStop(1, '#080808');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0,0,W,H);
-
-      drawRoots();
-      drawRootNodes();
+      const {roots, branches} = getNodes();
+      drawRoots(roots);
+      drawRootNodes(roots);
       drawGround();
       drawTrunk();
-      drawBranches();
-      drawBranchNodes();
-      drawBuds();
+      drawBranches(branches);
+      drawBranchNodes(branches);
+      drawBuds(branches);
       drawParticles();
       drawLabels();
-
+      drawScrollHint();
       requestAnimationFrame(draw);
     }
 
-    // Hit detection
     function getNodeAt(mx, my){
-      // scale mouse coords to canvas coords
-      const rect = canvas.getBoundingClientRect();
-      const cx = mx / rect.width * W;
-      const cy = my / rect.height * H;
-      for(const n of [...branchNodes, ...rootNodes].reverse()){
-        const dx = cx - n.x, dy = cy - n.y;
-        if(dx*dx+dy*dy < 200) return n; // ~14px radius
+      const {all} = getNodes();
+      for(const n of [...all].reverse()){
+        const dx = mx - n.x, dy = my - n.y;
+        if(dx*dx+dy*dy < 250) return n;
       }
       return null;
     }
 
     canvas.addEventListener('mousemove', (e)=>{
       const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const node = getNodeAt(mx, my);
-      hoverNode = node;
-      canvas.style.cursor = node ? 'pointer' : 'default';
+      const mx = (e.clientX - rect.left) / rect.width * W;
+      const my = (e.clientY - rect.top) / rect.height * H;
+      hoverNode = getNodeAt(mx, my);
+      canvas.style.cursor = hoverNode ? 'pointer' : 'default';
     });
 
     canvas.addEventListener('click', (e)=>{
       const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const mx = (e.clientX - rect.left) / rect.width * W;
+      const my = (e.clientY - rect.top) / rect.height * H;
       const node = getNodeAt(mx, my);
       if(node) scrollToEntry(node.id);
     });
+
+    canvas.addEventListener('touchstart', (e)=>{
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = (touch.clientX - rect.left) / rect.width * W;
+      const my = (touch.clientY - rect.top) / rect.height * H;
+      const node = getNodeAt(mx, my);
+      if(node){ e.preventDefault(); scrollToEntry(node.id); }
+    }, {passive:false});
 
     canvas.addEventListener('mouseleave', ()=>{ hoverNode = null; });
 
     draw();
   })();
-
   function scrollToEntry(id) {
     const el = document.getElementById(id);
     if (el) {
