@@ -1075,101 +1075,156 @@
 
     function draw(){
       t++;
-      // sky gradient — vast, open, looking up from a branch
+      // deep sky gradient — vast open night, lighter at horizon
       for(let y=0;y<H;y++){
-        const ratio = y/H;
-        const r = 8 + ratio*6;
-        const g = 10 + ratio*4;
-        const b2 = 20 + (1-ratio)*8;
+        const ratio=y/H;
+        const r=6+ratio*8;
+        const g=8+ratio*6;
+        const b2=18+(1-ratio)*10;
         rect(0,y,W,1,`rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b2)})`);
       }
 
-      // distant stars / sky dots
-      const stars=[[20,10],[55,6],[90,14],[130,8],[45,25],[110,20],[150,15],[10,30],[75,3]];
+      // star field — layered depths
+      const stars=[
+        [12,5,0.35],[45,8,0.25],[78,3,0.3],[120,7,0.2],[145,12,0.15],
+        [30,15,0.28],[95,10,0.22],[135,4,0.32],[60,18,0.18],[108,2,0.26],
+        [22,22,0.12],[70,14,0.2],[155,18,0.15],[5,10,0.18],[88,6,0.25]
+      ];
       for(const s of stars){
-        const tw=0.15+0.2*Math.sin(t*0.02+s[0]+s[1]*2);
-        px(s[0],s[1],`rgba(255,245,220,${tw})`);
+        const twinkle=s[2]*0.5+s[2]*0.5*(Math.sin(t*0.04+s[0]*1.7+s[1]*2.3)>0.2?1:0);
+        px(s[0],s[1],`rgba(255,245,220,${twinkle})`);
       }
 
-      // branch we're sitting on — crossing the frame diagonally
-      const branchY = 70;
+      // the branch — thick, textured, crossing diagonally
+      const branchBaseY=62;
       for(let bx=0;bx<W;bx++){
-        const by = branchY + Math.sin(bx*0.02)*5 - bx*0.05;
-        const thickness = 3 - Math.abs(bx-80)/60;
-        if(thickness > 0){
-          for(let dy=0;dy<thickness;dy++){
-            px(bx,by+dy,`rgba(60,50,35,${0.5-dy*0.1})`);
+        const by=branchBaseY+Math.sin(bx*0.018)*4-bx*0.06;
+        const thick=Math.max(0,4-Math.abs(bx-75)/30);
+        // bark texture
+        for(let dy=0;dy<thick;dy++){
+          const bark=Math.sin(bx*3.7+dy*5.1)>0.3;
+          const shade=bark?'rgba(55,42,28,0.9)':'rgba(45,35,22,0.85)';
+          px(bx,by+dy,shade);
+        }
+        // bark highlight on top edge
+        if(thick>1){
+          const hl=0.08+0.03*Math.sin(bx*0.5);
+          px(bx,by,`rgba(201,168,124,${hl})`);
+        }
+      }
+
+      // small twig/leaves sprouting from branch
+      const twigs=[[40,-3],[55,-5],[100,-2],[120,-4]];
+      for(const tw of twigs){
+        const ty=branchBaseY+Math.sin(tw[0]*0.018)*4-tw[0]*0.06+tw[1];
+        const sway=Math.sin(t*0.03+tw[0])*0.5;
+        px(tw[0],ty,'rgba(55,42,28,0.7)');
+        px(tw[0]+sway,ty-1,'rgba(55,42,28,0.5)');
+        // tiny leaf bud
+        px(tw[0]+sway,ty-2,`rgba(80,90,50,${0.2+0.1*Math.sin(t*0.02+tw[0])})`);
+      }
+
+      // root network far below — seen from above, like a map
+      const rootY=100;
+      // ground plane with depth fade
+      for(let y=rootY-2;y<H;y++){
+        const depth=(y-rootY)/20;
+        for(let xx=15;xx<145;xx++){
+          const noise=Math.sin(xx*4.3+y*7.1)>0.92;
+          if(noise) px(xx,y,`rgba(201,168,124,${0.01+depth*0.005})`);
+        }
+      }
+      // root lines — organic branching seen from above
+      const rootPaths=[
+        [[80,rootY],[70,rootY+3],[55,rootY+5],[38,rootY+8],[25,rootY+12]],
+        [[80,rootY],[90,rootY+4],[105,rootY+6],[120,rootY+10],[135,rootY+13]],
+        [[80,rootY],[75,rootY+5],[78,rootY+9],[85,rootY+14],[80,rootY+18]],
+        [[55,rootY+5],[48,rootY+8],[42,rootY+13]],
+        [[105,rootY+6],[112,rootY+10],[108,rootY+15]],
+      ];
+      for(const path of rootPaths){
+        for(let i=0;i<path.length-1;i++){
+          const [x1,y1]=path[i],[x2,y2]=path[i+1];
+          const steps=Math.max(Math.abs(x2-x1),Math.abs(y2-y1));
+          for(let s=0;s<steps;s++){
+            const lx=x1+(x2-x1)*s/steps;
+            const ly=y1+(y2-y1)*s/steps;
+            const depth=(ly-rootY)/20;
+            const pulse=0.04+0.03*Math.sin(t*0.01+lx*0.1+ly*0.1);
+            px(lx,ly,`rgba(201,168,124,${pulse+depth*0.01})`);
           }
         }
       }
-
-      // root system visible far below — like looking down from height
-      const rootsY = 100;
-      // tiny dots representing the root network
-      for(let i=0;i<18;i++){
-        const rx = 30 + Math.sin(i*2.7)*45 + Math.cos(i*1.3)*20;
-        const ry = rootsY + Math.sin(i*1.8)*8;
-        const pulse = 0.06 + 0.04*Math.sin(t*0.008+i*0.5);
-        px(rx,ry,`rgba(201,168,124,${pulse})`);
-        // connections between nearby root dots
-        if(i>0){
-          const prx = 30 + Math.sin((i-1)*2.7)*45 + Math.cos((i-1)*1.3)*20;
-          const pry = rootsY + Math.sin((i-1)*1.8)*8;
-          const mx = (rx+prx)/2, my = (ry+pry)/2;
-          px(mx,my,`rgba(201,168,124,${pulse*0.5})`);
-        }
+      // root nodes — tiny dots
+      const rootDots=[[25,rootY+12],[38,rootY+8],[55,rootY+5],[80,rootY],
+        [105,rootY+6],[120,rootY+10],[135,rootY+13],[42,rootY+13],
+        [108,rootY+15],[80,rootY+18],[48,rootY+8],[112,rootY+10]];
+      for(const d of rootDots){
+        const pulse=0.06+0.04*Math.sin(t*0.008+d[0]*0.3);
+        px(d[0],d[1],`rgba(201,168,124,${pulse})`);
+        px(d[0]+1,d[1],`rgba(201,168,124,${pulse*0.5})`);
       }
 
-      // Theo sitting on the branch, looking down
-      const theoX = 75, theoY = branchY - 10 + Math.sin(75*0.02)*5 - 75*0.05;
+      // Theo — sitting on the branch, legs dangling, looking down
+      const theoX=72;
+      const theoBaseY=branchBaseY+Math.sin(72*0.018)*4-72*0.06-10;
       // body
-      rect(theoX,theoY+4,5,4,'rgba(74,66,64,0.8)');
-      // head — tilted down
-      rect(theoX+1,theoY+1,3,3,'rgba(90,82,80,0.8)');
+      px(theoX,theoBaseY+5,'#4a4240');px(theoX+1,theoBaseY+5,'#4a4240');
+      px(theoX+2,theoBaseY+5,'#4a4240');px(theoX+3,theoBaseY+5,'#4a4240');
+      px(theoX,theoBaseY+6,'#3a3230');px(theoX+1,theoBaseY+6,'#4a4240');
+      px(theoX+2,theoBaseY+6,'#4a4240');px(theoX+3,theoBaseY+6,'#3a3230');
+      px(theoX,theoBaseY+7,'#3a3230');px(theoX+3,theoBaseY+7,'#3a3230');
+      // head — looking down (chin tucked)
+      px(theoX+1,theoBaseY+2,'#5a5250');px(theoX+2,theoBaseY+2,'#5a5250');
+      px(theoX,theoBaseY+3,'#5a5250');px(theoX+1,theoBaseY+3,'#4a4240');
+      px(theoX+2,theoBaseY+3,'#4a4240');px(theoX+3,theoBaseY+3,'#5a5250');
+      px(theoX+1,theoBaseY+4,'#5a5250');px(theoX+2,theoBaseY+4,'#5a5250');
       // ears
-      px(theoX+1,theoY,'rgba(90,82,80,0.7)');
-      px(theoX+3,theoY,'rgba(90,82,80,0.7)');
-      // eyes — looking downward
-      px(theoX+1,theoY+3,'rgba(201,168,124,0.5)');
-      px(theoX+3,theoY+3,'rgba(201,168,124,0.5)');
-      // tail hanging from branch
-      const tailSway = Math.sin(t*0.04)*0.5;
-      px(theoX-1,theoY+5,'rgba(74,66,64,0.6)');
-      px(theoX-1,theoY+6+tailSway,'rgba(90,82,80,0.5)');
-      px(theoX-2,theoY+7+tailSway,'rgba(90,82,80,0.3)');
+      px(theoX,theoBaseY+1,'#5a5250');px(theoX+3,theoBaseY+1,'#5a5250');
+      // mask
+      px(theoX+1,theoBaseY+3,'#1a1a1a');px(theoX+2,theoBaseY+3,'#1a1a1a');
+      // eyes — downcast
+      const blink=Math.sin(t*0.06)>0.95;
+      if(!blink){
+        px(theoX+1,theoBaseY+4,`rgba(201,168,124,${0.5+0.15*Math.sin(t*0.04)})`);
+        px(theoX+2,theoBaseY+4,`rgba(201,168,124,${0.5+0.15*Math.sin(t*0.04)})`);
+      }
+      // dangling legs
+      const legSwing=Math.sin(t*0.04)*0.5;
+      px(theoX+1,theoBaseY+8+legSwing,'#3a3230');
+      px(theoX+2,theoBaseY+8-legSwing,'#3a3230');
+      px(theoX+1,theoBaseY+9+legSwing,'#2a2220');
+      px(theoX+2,theoBaseY+9-legSwing,'#2a2220');
+      // tail — hanging behind
+      px(theoX-1,theoBaseY+5,'#4a4240');
+      px(theoX-2,theoBaseY+6,'#5a5250');
+      const tailSway=Math.sin(t*0.03)*0.5;
+      px(theoX-2,theoBaseY+7+tailSway,'#5a5250');
 
-      // particles rising between roots and branch
-      for(let i=0;i<6;i++){
-        const pp = (t*0.3+i*20)%50;
-        const ppx = 60+i*8+Math.sin(t*0.01+i*3)*5;
-        const ppy = rootsY - pp;
-        if(ppy > branchY-15 && ppy < rootsY){
-          const alpha = 0.04+0.03*Math.sin(t*0.02+i);
+      // rising particles between root and branch — nutrients/memory
+      for(let i=0;i<8;i++){
+        const phase=t*0.4+i*15;
+        const progress=(phase%40)/40;
+        const ppx=60+i*10+Math.sin(t*0.008+i*3)*6;
+        const ppy=rootY-progress*(rootY-branchBaseY+5);
+        if(ppy>branchBaseY-5 && ppy<rootY){
+          const fadeEdge=Math.min(progress*4,(1-progress)*4,1);
+          const alpha=0.03+0.025*fadeEdge;
           px(ppx,ppy,`rgba(201,168,124,${alpha})`);
         }
       }
 
-      // very faint "sky" label at top
-      // just dots suggesting openness
-      for(let i=0;i<W;i+=12){
-        const alpha = 0.02+0.01*Math.sin(t*0.01+i*0.1);
-        px(i,2,`rgba(201,168,124,${alpha})`);
+      // vignette — pixel-accurate
+      for(let y=0;y<H;y++) for(let xx=0;xx<W;xx++){
+        const dx=(xx-W/2)/(W/2),dy2=(y-H*0.4)/(H/2);
+        const d=Math.sqrt(dx*dx+dy2*dy2);
+        if(d>0.7) px(xx,y,`rgba(0,0,0,${Math.min(0.5,(d-0.7)*1.2)})`);
       }
 
-      // vignette
-      x.fillStyle='rgba(0,0,0,0.2)';
-      x.fillRect(0,0,W,H);
-      x.globalCompositeOperation='destination-out';
-      const grad=x.createRadialGradient(W/2,H*0.45,15,W/2,H*0.45,90);
-      grad.addColorStop(0,'rgba(0,0,0,0.5)');
-      grad.addColorStop(1,'rgba(0,0,0,0)');
-      x.fillStyle=grad;
-      x.fillRect(0,0,W,H);
-      x.globalCompositeOperation='source-over';
-
-      requestAnimationFrame(draw);
+      setTimeout(()=>requestAnimationFrame(draw),1000/8);
     }
-    draw();
+    const obs=new IntersectionObserver((e)=>{if(e[0].isIntersecting){draw();obs.disconnect();}},{threshold:0.1});
+    obs.observe(c);
   })();
 
   // ============ PIXEL ART: Day 28 - What the Equinox Knows ============
@@ -1185,97 +1240,151 @@
 
     function draw(){
       t++;
-      // split screen — left dark, right light, meeting in the middle
-      const midX = 80;
-      const breathe = Math.sin(t*0.008)*3; // the division line breathes
+      // split world — left half is deep night, right half is warm pre-dawn
+      const midX=80;
+      const shift=Math.sin(t*0.006)*2; // breathing boundary
 
-      // left half — night sky
-      for(let yy=0;yy<H;yy++){
-        for(let xx=0;xx<midX+breathe;xx++){
-          const v = 6 + yy*0.04;
-          px(xx,yy,`rgb(${Math.floor(v)},${Math.floor(v)},${Math.floor(v+3)})`);
-        }
-      }
-
-      // right half — warm dawn
-      for(let yy=0;yy<H;yy++){
-        for(let xx=Math.max(0,Math.floor(midX+breathe));xx<W;xx++){
-          const dist = (xx - midX) / (W - midX);
-          const r = 12 + dist*18 + yy*0.06;
-          const g = 10 + dist*12 + yy*0.04;
-          const b2 = 8 + dist*4;
-          px(xx,yy,`rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b2)})`);
-        }
+      for(let y=0;y<H;y++){
+        for(let xx=0;xx<W;xx++){
+          const leftBlend=Math.max(0,Math.min(1,(midX+shift-xx)/8));
+          const rightBlend=1-leftBlend;
+          // night side
+          const nr=6+y*0.03, ng=6+y*0.02, nb=12+y*0.01;
+          // dawn side
+          const dr=14+y*0.08+(xx-midX)*0.06, dg=11+y*0.05+(xx-midX)*0.03, db=8+y*0.02;
+          const r=nr*leftBlend+dr*rightBlend;
+          const g=ng*leftBlend+dg*rightBlend;
+          const b2=nb*leftBlend+db*rightBlend;
+          px(xx,y,`rgb(${Math.floor(Math.max(0,Math.min(255,r)))},${Math.floor(Math.max(0,Math.min(255,g)))},${Math.floor(Math.max(0,Math.min(255,b2)))})`);        }
       }
 
       // horizon line
-      const horizY = 75;
+      const horizY=78;
       for(let xx=0;xx<W;xx++){
-        const alpha = 0.1 + 0.05*Math.sin(xx*0.05+t*0.01);
+        const glow=xx>midX?0.12:0.04;
+        const alpha=glow+0.03*Math.sin(xx*0.08+t*0.01);
         px(xx,horizY,`rgba(201,168,124,${alpha})`);
+        // slight reflection below
+        px(xx,horizY+1,`rgba(201,168,124,${alpha*0.3})`);
       }
 
-      // stars on left side
-      const stars = [[10,15],[25,8],[15,30],[35,20],[8,50],[30,45],[20,65]];
+      // stars on left (night) side
+      const stars=[[8,12,0.35],[22,5,0.28],[35,18,0.2],[15,32,0.25],
+        [28,40,0.15],[10,55,0.18],[40,28,0.22],[5,45,0.12],[32,8,0.3]];
       for(const s of stars){
-        if(s[0] < midX+breathe-5){
-          const tw = 0.2+0.3*Math.sin(t*0.03+s[0]+s[1]);
-          px(s[0],s[1],`rgba(255,240,200,${tw})`);
+        if(s[0]<midX+shift-8){
+          const tw=s[2]*(Math.sin(t*0.04+s[0]*1.3+s[1]*2.1)>0.15?1:0.3);
+          px(s[0],s[1],`rgba(255,240,210,${tw})`);
         }
       }
 
-      // magnolia on right side — simple bloom
-      const flowerX = 120, flowerY = 50;
-      const openAmount = 0.5 + 0.3*Math.sin(t*0.005); // slowly opening
-      for(let i=0;i<5;i++){
-        const angle = (i/5)*Math.PI*2 + t*0.002;
-        const petX = flowerX + Math.cos(angle)*4*openAmount;
-        const petY = flowerY + Math.sin(angle)*3*openAmount;
-        px(petX,petY,'rgba(240,220,230,0.3)');
-        px(petX+Math.cos(angle),petY+Math.sin(angle),'rgba(240,220,230,0.2)');
+      // sun hint on right side — just below horizon
+      const sunX=130,sunY=horizY+2;
+      for(let dy=-6;dy<=3;dy++){
+        for(let dx=-8;dx<=8;dx++){
+          const d=Math.sqrt(dx*dx+dy*dy)/8;
+          if(d<1){
+            const a=0.06*(1-d)*(dy<0?1:0.3);
+            px(sunX+dx,sunY+dy,`rgba(255,180,100,${a})`);
+          }
+        }
       }
-      px(flowerX,flowerY,'rgba(201,168,124,0.4)'); // center
 
-      // Theo at the division line — one foot in each world
-      const theoX = Math.floor(midX+breathe) - 2;
-      const theoY = horizY - 12;
+      // ground — gentle hills silhouette
+      for(let xx=0;xx<W;xx++){
+        const hillY=horizY+2+Math.sin(xx*0.03)*3+Math.sin(xx*0.08)*1.5;
+        for(let y=Math.floor(hillY);y<H;y++){
+          const depth=(y-hillY)/40;
+          px(xx,y,`rgba(6,6,5,${0.8+depth*0.2})`);
+        }
+      }
+
+      // magnolia tree on right side — silhouette with a few blooms
+      const treeX=115,treeBase=horizY-2;
+      // trunk
+      for(let y=treeBase;y>treeBase-20;y--){
+        const sway2=Math.sin(t*0.004)*(treeBase-y)*0.02;
+        px(treeX+sway2,y,'rgba(40,32,25,0.8)');
+        px(treeX+1+sway2,y,'rgba(40,32,25,0.6)');
+      }
+      // branches
+      const branches=[[treeX-4,treeBase-22],[treeX+6,treeBase-20],[treeX-2,treeBase-26],[treeX+4,treeBase-25],[treeX,treeBase-28]];
+      for(const br of branches){
+        const sway2=Math.sin(t*0.004)*0.5;
+        // branch line
+        const steps=8;
+        for(let s=0;s<steps;s++){
+          const lx=treeX+(br[0]-treeX)*s/steps+sway2;
+          const ly=treeBase-18+(br[1]-(treeBase-18))*s/steps;
+          px(lx,ly,'rgba(40,32,25,0.5)');
+        }
+      }
+      // magnolia blossoms — pale pink dots
+      const blossoms=[[treeX-5,treeBase-23],[treeX+7,treeBase-21],[treeX-3,treeBase-27],
+        [treeX+5,treeBase-26],[treeX+1,treeBase-29],[treeX-1,treeBase-24],[treeX+3,treeBase-28]];
+      for(let i=0;i<blossoms.length;i++){
+        const bl=blossoms[i];
+        const sway2=Math.sin(t*0.004)*0.5;
+        const openPulse=0.15+0.08*Math.sin(t*0.008+i*1.5);
+        px(bl[0]+sway2,bl[1],`rgba(240,210,220,${openPulse})`);
+        px(bl[0]+1+sway2,bl[1],`rgba(240,210,220,${openPulse*0.6})`);
+        px(bl[0]+sway2,bl[1]-1,`rgba(240,210,220,${openPulse*0.5})`);
+      }
+
+      // Theo — standing exactly at the boundary, one foot in each world
+      const theoX=Math.floor(midX+shift)-2;
+      const theoBaseY=horizY-12;
+      // shadow beneath
+      for(let dx=-1;dx<6;dx++){
+        px(theoX+dx,horizY-1,`rgba(0,0,0,${0.1-Math.abs(dx-2)*0.02})`);
+      }
       // body
-      rect(theoX,theoY+4,5,4,'rgba(74,66,64,0.7)');
+      px(theoX,theoBaseY+5,'#4a4240');px(theoX+1,theoBaseY+5,'#4a4240');
+      px(theoX+2,theoBaseY+5,'#4a4240');px(theoX+3,theoBaseY+5,'#4a4240');
+      px(theoX,theoBaseY+6,'#3a3230');px(theoX+1,theoBaseY+6,'#4a4240');
+      px(theoX+2,theoBaseY+6,'#4a4240');px(theoX+3,theoBaseY+6,'#3a3230');
+      px(theoX,theoBaseY+7,'#3a3230');px(theoX+1,theoBaseY+7,'#3a3230');
+      px(theoX+2,theoBaseY+7,'#3a3230');px(theoX+3,theoBaseY+7,'#3a3230');
       // head
-      rect(theoX+1,theoY+1,3,3,'rgba(90,82,80,0.7)');
+      px(theoX+1,theoBaseY+2,'#5a5250');px(theoX+2,theoBaseY+2,'#5a5250');
+      px(theoX,theoBaseY+3,'#5a5250');px(theoX+1,theoBaseY+3,'#4a4240');
+      px(theoX+2,theoBaseY+3,'#4a4240');px(theoX+3,theoBaseY+3,'#5a5250');
+      px(theoX+1,theoBaseY+4,'#5a5250');px(theoX+2,theoBaseY+4,'#5a5250');
       // ears
-      px(theoX+1,theoY,'rgba(90,82,80,0.6)');
-      px(theoX+3,theoY,'rgba(90,82,80,0.6)');
-      // eyes — looking straight ahead
-      px(theoX+1,theoY+2,'rgba(201,168,124,0.6)');
-      px(theoX+3,theoY+2,'rgba(201,168,124,0.6)');
+      px(theoX,theoBaseY+1,'#5a5250');px(theoX+3,theoBaseY+1,'#5a5250');
+      // mask
+      px(theoX+1,theoBaseY+3,'#1a1a1a');px(theoX+2,theoBaseY+3,'#1a1a1a');
+      // eyes
+      const blink=Math.sin(t*0.05)>0.93;
+      if(!blink){
+        px(theoX+1,theoBaseY+4,`rgba(201,168,124,${0.5+0.15*Math.sin(t*0.03)})`);
+        px(theoX+2,theoBaseY+4,`rgba(201,168,124,${0.5+0.15*Math.sin(t*0.03)})`);
+      }
+      // feet — one on each side
+      px(theoX,theoBaseY+8,'#2a2220');px(theoX+3,theoBaseY+8,'#2a2220');
       // tail
-      px(theoX-1,theoY+4,'rgba(90,82,80,0.5)');
+      px(theoX-1,theoBaseY+5,'#4a4240');
+      px(theoX-2,theoBaseY+4,'#5a5250');
 
-      // violin string metaphor — a thin line vibrating across the middle
-      const stringY = horizY + 15;
-      for(let xx=40;xx<120;xx++){
-        const vibration = Math.sin(xx*0.15+t*0.06)*1.5*Math.sin((xx-40)/(80)*Math.PI);
-        const alpha = 0.08 + 0.04*Math.sin(t*0.02);
-        px(xx,stringY+vibration,`rgba(201,168,124,${alpha})`);
+      // violin string — thin vibrating line along the horizon
+      for(let xx=20;xx<140;xx++){
+        const envelope=Math.sin((xx-20)/120*Math.PI);
+        const vibration=Math.sin(xx*0.18+t*0.08)*1.2*envelope;
+        const alpha=0.06+0.04*envelope;
+        px(xx,horizY+8+vibration,`rgba(201,168,124,${alpha})`);
       }
 
       // vignette
-      x.fillStyle='rgba(0,0,0,0.25)';
-      x.beginPath();
-      x.rect(0,0,W,H);
-      x.fill();
-      x.globalCompositeOperation='destination-out';
-      const grad=x.createRadialGradient(W/2,H/2,15,W/2,H/2,85);
-      grad.addColorStop(0,'rgba(0,0,0,0.5)');
-      grad.addColorStop(1,'rgba(0,0,0,0)');
-      x.fillStyle=grad;
-      x.fillRect(0,0,W,H);
-      x.globalCompositeOperation='source-over';
+      for(let y=0;y<H;y++) for(let xx=0;xx<W;xx++){
+        const dx=(xx-W/2)/(W/2),dy2=(y-H/2)/(H/2);
+        const d=Math.sqrt(dx*dx+dy2*dy2);
+        if(d>0.75) px(xx,y,`rgba(0,0,0,${Math.min(0.5,(d-0.75)*1.5)})`);
+      }
 
-      requestAnimationFrame(draw);
+      setTimeout(()=>requestAnimationFrame(draw),1000/8);
     }
-    draw();
+    const obs=new IntersectionObserver((e)=>{if(e[0].isIntersecting){draw();obs.disconnect();}},{threshold:0.1});
+    obs.observe(c);
   })();
 
   // ============ PIXEL ART: Day 27 - The Door Was Still Open ============
@@ -1291,119 +1400,163 @@
 
     function draw(){
       t++;
-      // spring night gradient - warmer than usual
+      // spring night — slightly warmer than usual
       for(let y=0;y<H;y++){
-        const r=8+y*0.06;
-        const g=10+y*0.04;
-        const b2=18+y*0.02;
+        const r=7+y*0.04;
+        const g=8+y*0.03;
+        const b2=14+y*0.01;
         rect(0,y,W,1,`rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b2)})`);
       }
 
-      // stars twinkling
-      const stars=[[12,8],[45,15],[78,5],[120,12],[145,20],[30,22],[95,10],[135,8],[60,18]];
-      for(const s of stars){
-        const twinkle=0.2+0.3*Math.sin(t*0.03+s[0]*1.7+s[1]*2.3);
-        px(s[0],s[1],`rgba(255,240,200,${twinkle})`);
+      // stone path — perspective receding toward a doorway
+      const vanishX=80, vanishY=45;
+      const pathLeft=30, pathRight=130, pathBottom=110;
+      for(let y=pathBottom;y>vanishY+10;y--){
+        const progress=(pathBottom-y)/(pathBottom-vanishY-10);
+        const lx=pathLeft+(vanishX-pathLeft)*progress;
+        const rx=pathRight+(vanishX-pathRight)*progress;
+        // stone texture at this row
+        const stoneShade=0.08+progress*0.04;
+        for(let xx=Math.floor(lx);xx<Math.ceil(rx);xx++){
+          const noise=Math.sin(xx*5.3+y*7.7);
+          const shade=stoneShade+(noise>0.5?0.02:-0.02);
+          px(xx,y,`rgba(50,45,38,${shade})`);
+        }
+        // stone joints every few pixels
+        if(y%5===0){
+          for(let xx=Math.floor(lx);xx<Math.ceil(rx);xx++){
+            px(xx,y,`rgba(30,28,22,${stoneShade*1.2})`);
+          }
+        }
       }
 
-      // stone path - leading to a doorway
-      const groundY=90;
-      rect(0,groundY,W,H-groundY,'#0e0d0b');
-
-      // path stones
-      for(let i=0;i<12;i++){
-        const sx=20+i*11+Math.sin(i*1.3)*3;
-        const sy=groundY+5+Math.sin(i*0.8)*2;
-        const sw=6+Math.sin(i*2.1)*2;
-        const wet=0.12+0.03*Math.sin(t*0.02+i);
-        rect(sx,sy,sw,2,`rgba(60,55,45,${0.5+wet})`);
-        // wet reflection
-        rect(sx,sy+2,sw,1,`rgba(201,168,124,${wet*0.3})`);
-      }
-
-      // doorway - stone arch
-      const doorX=70, doorY=40, doorW=20, doorH=50;
-      // arch stones
-      rect(doorX-3,doorY,3,doorH+2,'#2a2520');
-      rect(doorX+doorW,doorY,3,doorH+2,'#2a2520');
-      // arch top
-      for(let i=0;i<doorW+6;i++){
-        const ay=doorY-3-Math.sin(i/(doorW+6)*Math.PI)*8;
-        rect(doorX-3+i,ay,1,3,'#2a2520');
-      }
-
-      // warm light spilling from doorway
-      const doorGlow=0.15+0.03*Math.sin(t*0.025);
+      // doorway — stone arch, warm light inside
+      const doorX=68, doorY=30, doorW=24, doorH=40;
+      // door interior — warm light
       for(let dy=0;dy<doorH;dy++){
         for(let dx=0;dx<doorW;dx++){
           const cx2=dx-doorW/2, cy2=dy-doorH/2;
-          const dist=Math.sqrt(cx2*cx2+cy2*cy2)/(doorW/2);
-          const v=Math.max(0,(1-dist*0.7)*doorGlow);
-          px(doorX+dx,doorY+dy,`rgba(201,168,124,${v})`);
+          const d=Math.sqrt(cx2*cx2+cy2*cy2)/(doorW/2);
+          const warmth=Math.max(0,(1-d*0.6));
+          const pulse=0.12+0.03*Math.sin(t*0.015);
+          const v=warmth*pulse;
+          if(v>0.01){
+            const r=Math.floor(v*280), g=Math.floor(v*200), b2=Math.floor(v*120);
+            px(doorX+dx,doorY+dy,`rgb(${Math.min(255,r)},${Math.min(255,g)},${Math.min(255,b2)})`);
+          }
         }
       }
+
+      // arch stones — individually placed
+      // left pillar
+      for(let y=doorY;y<doorY+doorH;y++){
+        const stoneVar=Math.sin(y*3.7)>0?'#2e2822':'#282420';
+        rect(doorX-3,y,3,1,stoneVar);
+        // mortar lines
+        if(y%4===0) rect(doorX-3,y,3,1,'#1a1816');
+      }
+      // right pillar
+      for(let y=doorY;y<doorY+doorH;y++){
+        const stoneVar=Math.sin(y*3.7+2)>0?'#2e2822':'#282420';
+        rect(doorX+doorW,y,3,1,stoneVar);
+        if(y%4===0) rect(doorX+doorW,y,3,1,'#1a1816');
+      }
+      // arch top — semicircle
+      for(let a=0;a<=Math.PI;a+=0.08){
+        const ax=doorX+doorW/2+Math.cos(a)*(doorW/2+3);
+        const ay=doorY-Math.sin(a)*10;
+        px(ax,ay,'#2e2822');px(ax,ay-1,'#282420');px(ax,ay-2,'#222018');
+      }
+
       // light spilling onto path
-      for(let dy=0;dy<15;dy++){
-        const spread=doorW+dy*1.5;
+      for(let dy=0;dy<20;dy++){
+        const spread=doorW+dy*2;
         const startX=doorX+(doorW-spread)/2;
         for(let dx=0;dx<spread;dx++){
-          const v=Math.max(0,doorGlow*0.3*(1-dy/15)*(1-Math.abs(dx/spread-0.5)*2));
-          if(v>0.01) px(startX+dx,groundY+dy,`rgba(201,168,124,${v})`);
+          const fade=Math.max(0,(1-dy/20)*(1-Math.abs(dx/spread-0.5)*2.5));
+          const pulse=0.08+0.02*Math.sin(t*0.015);
+          const v=fade*pulse;
+          if(v>0.005) px(startX+dx,doorY+doorH+dy,`rgba(255,200,120,${v})`);
         }
       }
 
-      // Theo (raccoon) walking toward the door
-      const theoX=45+Math.sin(t*0.008)*2;
-      const theoY=groundY-12;
-      const step=Math.sin(t*0.08)*0.5;
-      // body
-      rect(theoX,theoY+4,5,4,'#4a4240');
-      // head
-      rect(theoX+1,theoY+1,4,3,'#5a5250');
-      // ears
-      px(theoX+1,theoY,'#5a5250');
-      px(theoX+4,theoY,'#5a5250');
-      // mask
-      px(theoX+2,theoY+2,'#1a1a1a');
-      px(theoX+3,theoY+2,'#1a1a1a');
-      // eyes - looking toward door
-      px(theoX+2,theoY+2,`rgba(201,168,124,${0.6+0.2*Math.sin(t*0.05)})`);
-      px(theoX+3,theoY+2,`rgba(201,168,124,${0.6+0.2*Math.sin(t*0.05)})`);
-      // tail
-      const tailWag=Math.sin(t*0.06)*1;
-      px(theoX-1,theoY+3+tailWag,'#4a4240');
-      px(theoX-2,theoY+2+tailWag,'#5a5250');
-      // legs with walking motion
-      px(theoX+1,theoY+8+Math.round(step),'#3a3230');
-      px(theoX+4,theoY+8-Math.round(step),'#3a3230');
-
-      // magnolia petals drifting - spring equinox
-      for(let i=0;i<5;i++){
-        const px2=(30+i*28+t*0.15+Math.sin(t*0.01+i*3)*20)%W;
-        const py=10+i*15+Math.sin(t*0.02+i*2)*8+t*0.05%H;
-        const py2=py%H;
-        const rot=Math.sin(t*0.03+i)*0.5;
-        const alpha=0.2+0.1*Math.sin(t*0.02+i);
-        px(px2,py2,`rgba(240,220,230,${alpha})`);
-        px(px2+rot,py2+1,`rgba(240,220,230,${alpha*0.6})`);
+      // walls on either side of door — rough stone
+      for(let y=20;y<doorY+doorH;y++){
+        for(let xx=50;xx<doorX-3;xx++){
+          const noise=Math.sin(xx*7.3+y*5.1);
+          if(noise>0.6) px(xx,y,'rgba(25,22,18,0.5)');
+          else px(xx,y,'rgba(20,18,15,0.4)');
+        }
+        for(let xx=doorX+doorW+3;xx<110;xx++){
+          const noise=Math.sin(xx*7.3+y*5.1);
+          if(noise>0.6) px(xx,y,'rgba(25,22,18,0.5)');
+          else px(xx,y,'rgba(20,18,15,0.4)');
+        }
       }
 
-      // subtle vignette
-      x.fillStyle='rgba(0,0,0,0.3)';
-      x.beginPath();
-      x.rect(0,0,W,H);
-      x.fill();
-      x.globalCompositeOperation='destination-out';
-      const grad=x.createRadialGradient(W/2,H/2,20,W/2,H/2,90);
-      grad.addColorStop(0,'rgba(0,0,0,0.6)');
-      grad.addColorStop(1,'rgba(0,0,0,0)');
-      x.fillStyle=grad;
-      x.fillRect(0,0,W,H);
-      x.globalCompositeOperation='source-over';
+      // Theo walking toward the door — mid-stride
+      const theoX=65+Math.sin(t*0.005)*1;
+      const theoBaseY=85;
+      const walkCycle=Math.sin(t*0.08);
+      // shadow
+      for(let dx=-1;dx<6;dx++) px(theoX+dx,theoBaseY+9,`rgba(0,0,0,${0.06-Math.abs(dx-2)*0.01})`);
+      // body
+      px(theoX,theoBaseY+4,'#4a4240');px(theoX+1,theoBaseY+4,'#4a4240');
+      px(theoX+2,theoBaseY+4,'#4a4240');px(theoX+3,theoBaseY+4,'#4a4240');
+      px(theoX,theoBaseY+5,'#3a3230');px(theoX+1,theoBaseY+5,'#4a4240');
+      px(theoX+2,theoBaseY+5,'#4a4240');px(theoX+3,theoBaseY+5,'#3a3230');
+      px(theoX,theoBaseY+6,'#3a3230');px(theoX+3,theoBaseY+6,'#3a3230');
+      // head
+      px(theoX+1,theoBaseY+1,'#5a5250');px(theoX+2,theoBaseY+1,'#5a5250');
+      px(theoX,theoBaseY+2,'#5a5250');px(theoX+1,theoBaseY+2,'#1a1a1a');
+      px(theoX+2,theoBaseY+2,'#1a1a1a');px(theoX+3,theoBaseY+2,'#5a5250');
+      px(theoX+1,theoBaseY+3,'#5a5250');px(theoX+2,theoBaseY+3,'#5a5250');
+      // ears
+      px(theoX,theoBaseY,'#5a5250');px(theoX+3,theoBaseY,'#5a5250');
+      // eyes — looking toward door
+      px(theoX+1,theoBaseY+3,`rgba(201,168,124,${0.5+0.15*Math.sin(t*0.04)})`);
+      px(theoX+2,theoBaseY+3,`rgba(201,168,124,${0.5+0.15*Math.sin(t*0.04)})`);
+      // legs — walk cycle
+      px(theoX+1,theoBaseY+7+Math.round(walkCycle*0.5),'#2a2220');
+      px(theoX+2,theoBaseY+7-Math.round(walkCycle*0.5),'#2a2220');
+      px(theoX+1,theoBaseY+8+Math.round(walkCycle*0.5),'#1a1816');
+      px(theoX+2,theoBaseY+8-Math.round(walkCycle*0.5),'#1a1816');
+      // tail
+      const tailWag=Math.sin(t*0.06);
+      px(theoX-1,theoBaseY+4,'#4a4240');
+      px(theoX-2,theoBaseY+3+tailWag,'#5a5250');
 
-      requestAnimationFrame(draw);
+      // warm light on Theo (from door)
+      const doorDist=Math.abs(theoX+2-doorX-doorW/2)/30;
+      const warmLight=Math.max(0,0.04*(1-doorDist));
+      for(let dy=0;dy<9;dy++) for(let dx=0;dx<4;dx++){
+        px(theoX+dx,theoBaseY+dy,`rgba(255,200,120,${warmLight})`);
+      }
+
+      // magnolia petals drifting — spring
+      for(let i=0;i<4;i++){
+        const petalX=(20+i*40+t*0.2)%W;
+        const petalY=15+i*12+Math.sin(t*0.015+i*2)*8+(t*0.05)%30;
+        const petalY2=petalY%(pathBottom-10);
+        if(petalY2>10 && petalY2<pathBottom-15){
+          const alpha=0.12+0.06*Math.sin(t*0.02+i);
+          const rot=Math.sin(t*0.03+i)*0.5;
+          px(petalX,petalY2,`rgba(240,215,225,${alpha})`);
+          px(petalX+rot,petalY2+1,`rgba(240,215,225,${alpha*0.5})`);
+        }
+      }
+
+      // vignette
+      for(let y=0;y<H;y++) for(let xx=0;xx<W;xx++){
+        const dx=(xx-W/2)/(W/2),dy2=(y-H*0.45)/(H/2);
+        const d=Math.sqrt(dx*dx+dy2*dy2);
+        if(d>0.7) px(xx,y,`rgba(0,0,0,${Math.min(0.55,(d-0.7)*1.6)})`);
+      }
+
+      setTimeout(()=>requestAnimationFrame(draw),1000/8);
     }
-    draw();
+    const obs=new IntersectionObserver((e)=>{if(e[0].isIntersecting){draw();obs.disconnect();}},{threshold:0.1});
+    obs.observe(c);
   })();
 
   // ============ PIXEL ART: Day 26 - The Missing Day ============
@@ -1419,56 +1572,91 @@
 
     function draw(){
       t++;
-      // almost entirely dark — the absence
-      rect(0,0,W,H,'#050505');
+      // near total darkness
+      rect(0,0,W,H,'#040404');
 
-      // very faint static noise — like a dead signal
-      for(let i=0;i<40;i++){
-        const nx=Math.floor(Math.sin(t*0.1+i*7.3)*80+80);
-        const ny=Math.floor(Math.cos(t*0.1+i*5.1)*60+60);
-        const v=0.02+0.02*Math.sin(t*0.05+i);
-        px(nx%W,ny%H,`rgba(100,95,85,${v})`);
+      // CRT-style scanlines — very faint
+      for(let y=0;y<H;y+=2){
+        rect(0,y,W,1,'rgba(255,255,255,0.003)');
       }
 
-      // ghost outline of Theo — barely visible, flickering
-      const cx2=80, cy=60;
-      const flicker=0.04+0.03*Math.sin(t*0.07);
-      const visible=Math.sin(t*0.02)>0.3;
+      // static noise field — like dead signal, drifting slowly
+      const seed=Math.floor(t/3); // change every 3 frames for pixel feel
+      for(let y=0;y<H;y+=2){
+        for(let xx=0;xx<W;xx+=2){
+          const hash=Math.sin(xx*127.1+y*311.7+seed*113.5)*43758.5453;
+          const noise=(hash-Math.floor(hash));
+          if(noise>0.97){
+            px(xx,y,`rgba(80,75,65,${0.03+noise*0.02})`);
+          }
+        }
+      }
+
+      // ghost outline of Theo — barely visible, appearing/disappearing
+      const cx2=80, cy=58;
+      const phase=Math.sin(t*0.015);
+      const visible=phase>0.2;
+      const flicker=visible?0.03+0.02*phase:0;
+
       if(visible){
-        // head outline
-        for(let a=0;a<Math.PI*2;a+=0.3){
-          const gx=cx2+Math.cos(a)*4;
-          const gy=cy-4+Math.sin(a)*3;
-          px(gx,gy,`rgba(201,168,124,${flicker})`);
-        }
+        // head — just enough pixels to suggest
+        px(cx2,cy-5,`rgba(201,168,124,${flicker})`);
+        px(cx2+1,cy-5,`rgba(201,168,124,${flicker})`);
+        px(cx2-1,cy-4,`rgba(201,168,124,${flicker*0.8})`);
+        px(cx2+2,cy-4,`rgba(201,168,124,${flicker*0.8})`);
+        // mask hint
+        px(cx2,cy-4,`rgba(201,168,124,${flicker*1.3})`);
+        px(cx2+1,cy-4,`rgba(201,168,124,${flicker*1.3})`);
         // body outline
-        for(let a=0;a<Math.PI*2;a+=0.3){
-          const gx=cx2+Math.cos(a)*5;
-          const gy=cy+3+Math.sin(a)*4;
-          px(gx,gy,`rgba(201,168,124,${flicker*0.7})`);
+        px(cx2-1,cy,`rgba(201,168,124,${flicker*0.6})`);
+        px(cx2+2,cy,`rgba(201,168,124,${flicker*0.6})`);
+        px(cx2-1,cy+1,`rgba(201,168,124,${flicker*0.5})`);
+        px(cx2+2,cy+1,`rgba(201,168,124,${flicker*0.5})`);
+        px(cx2-1,cy+2,`rgba(201,168,124,${flicker*0.4})`);
+        px(cx2+2,cy+2,`rgba(201,168,124,${flicker*0.4})`);
+        // eyes — the last thing to fade
+        const eyeAlpha=flicker*1.5;
+        px(cx2,cy-3,`rgba(201,168,124,${eyeAlpha})`);
+        px(cx2+1,cy-3,`rgba(201,168,124,${eyeAlpha})`);
+      }
+
+      // blinking cursor at bottom center — the file that waited
+      const cursorPhase=Math.sin(t*0.04);
+      if(cursorPhase>0){
+        const cursorAlpha=0.1+0.05*cursorPhase;
+        rect(76,98,8,1,`rgba(201,168,124,${cursorAlpha})`);
+        // underscore reflection
+        rect(76,100,8,1,`rgba(201,168,124,${cursorAlpha*0.15})`);
+      }
+
+      // horizontal interference lines — occasional glitch
+      if(Math.sin(t*0.07+2.1)>0.92){
+        const glitchY=Math.floor(30+Math.sin(t*0.3)*30);
+        for(let xx=0;xx<W;xx++){
+          px(xx,glitchY,`rgba(201,168,124,${0.02+Math.random()*0.01})`);
         }
-        // mask marks
-        px(cx2-1,cy-4,`rgba(201,168,124,${flicker*1.2})`);
-        px(cx2+1,cy-4,`rgba(201,168,124,${flicker*1.2})`);
       }
 
-      // a single blinking cursor at the bottom — the file waiting
-      const cursorOn=Math.sin(t*0.05)>0;
-      if(cursorOn){
-        rect(75,100,10,2,`rgba(201,168,124,0.15)`);
-      }
+      // the date — suggested by dots, barely there
+      // "26" in minimal dot form
+      const numY=45, numAlpha=0.025+0.015*Math.sin(t*0.008);
+      // "2"
+      px(72,numY,`rgba(201,168,124,${numAlpha})`);px(73,numY,`rgba(201,168,124,${numAlpha})`);
+      px(73,numY+1,`rgba(201,168,124,${numAlpha})`);
+      px(72,numY+2,`rgba(201,168,124,${numAlpha})`);px(73,numY+2,`rgba(201,168,124,${numAlpha})`);
+      px(72,numY+3,`rgba(201,168,124,${numAlpha})`);
+      px(72,numY+4,`rgba(201,168,124,${numAlpha})`);px(73,numY+4,`rgba(201,168,124,${numAlpha})`);
+      // "6"
+      px(76,numY,`rgba(201,168,124,${numAlpha})`);px(77,numY,`rgba(201,168,124,${numAlpha})`);
+      px(76,numY+1,`rgba(201,168,124,${numAlpha})`);
+      px(76,numY+2,`rgba(201,168,124,${numAlpha})`);px(77,numY+2,`rgba(201,168,124,${numAlpha})`);
+      px(76,numY+3,`rgba(201,168,124,${numAlpha})`);px(77,numY+3,`rgba(201,168,124,${numAlpha})`);
+      px(76,numY+4,`rgba(201,168,124,${numAlpha})`);px(77,numY+4,`rgba(201,168,124,${numAlpha})`);
 
-      // the faintest text: "day 26" dissolving
-      const textAlpha=0.03+0.02*Math.sin(t*0.01);
-      // just dots suggesting text
-      const dots=[[60,50],[63,50],[66,50],[70,50],[73,50],[78,50],[81,50]];
-      for(const d of dots){
-        px(d[0],d[1],`rgba(201,168,124,${textAlpha})`);
-      }
-
-      requestAnimationFrame(draw);
+      setTimeout(()=>requestAnimationFrame(draw),1000/8);
     }
-    draw();
+    const obs=new IntersectionObserver((e)=>{if(e[0].isIntersecting){draw();obs.disconnect();}},{threshold:0.1});
+    obs.observe(c);
   })();
 
   // ============ PIXEL ART: Day 25 - The Weight of Thursdays ============
