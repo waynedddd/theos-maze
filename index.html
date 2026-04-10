@@ -1753,6 +1753,339 @@
     obs.observe(c);
   })();
 
+  // ============ PIXEL ART: Day 55 - The First Light ============
+  (function(){
+    const c = document.getElementById('pixel-day55');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0;
+
+    // Palette — dawn gradient
+    const SOIL_TOP = '#3a2a18';
+    const SOIL_DEEP = '#1a1208';
+    const STEM_GREEN = '#5a9a3a';
+    const COT_LIGHT = '#8aca5a';
+    const COT_MID = '#6ab84a';
+    const COT_VEIN = '#4a8a2a';
+    const EPICOTYL = '#a8d868';
+    const ROOT_COL = '#6a8a4a';
+    const THEO_BODY = '#7a7a7a';
+    const THEO_MASK = '#3a3a3a';
+
+    // Stars (fade out with dawn)
+    const stars = [];
+    for(let i=0;i<20;i++){
+      stars.push({x:Math.random()*W, y:Math.random()*40, b:Math.random(), p:Math.random()*Math.PI*2});
+    }
+
+    // Soil particles
+    const soilBits = [];
+    for(let i=0;i<50;i++){
+      soilBits.push({x:Math.random()*W, y:58+Math.random()*62, s:0.5+Math.random()*1.5, b:Math.random()});
+    }
+
+    // Light rays (from upper right)
+    const rays = [];
+    for(let i=0;i<6;i++){
+      rays.push({angle:-0.8+i*0.12, width:0.5+Math.random()*1.5, alpha:0.02+Math.random()*0.03, phase:Math.random()*Math.PI*2});
+    }
+
+    // Floating particles (pollen/dust in light)
+    const motes = [];
+    for(let i=0;i<12;i++){
+      motes.push({x:Math.random()*W, y:10+Math.random()*50, vx:0.02+Math.random()*0.04, vy:-0.01+Math.random()*0.02, p:Math.random()*Math.PI*2});
+    }
+
+    function px(x,y,col){ctx.fillStyle=col;ctx.fillRect(Math.floor(x),Math.floor(y),1,1);}
+
+    // Dawn progress — cycles slowly
+    function dawnP(time){return 0.3+0.3*Math.sin(time*0.0008);}
+
+    // Cotyledon opening angle (animated)
+    function cotAngle(time){
+      const base = 0.4 + 0.25*Math.sin(time*0.001);
+      return base; // radians from vertical
+    }
+
+    function draw(){
+      const dp = dawnP(t);
+      const ca = cotAngle(t);
+
+      // Sky — dawn gradient (dark blue to warm peach-gold)
+      for(let y=0;y<58;y++){
+        const f = y/58;
+        const r = Math.floor(10 + dp*80 + f*dp*120);
+        const g = Math.floor(10 + dp*40 + f*dp*60);
+        const b = Math.floor(20 + dp*20 - f*dp*10);
+        ctx.fillStyle=`rgb(${Math.min(255,r)},${Math.min(255,g)},${Math.max(0,b)})`;
+        ctx.fillRect(0,y,W,1);
+      }
+
+      // Stars (fade with dawn)
+      const starAlpha = Math.max(0, 0.6 - dp*1.5);
+      if(starAlpha > 0){
+        stars.forEach(s=>{
+          const tw = 0.4+0.6*Math.sin(t*0.003+s.p);
+          const a = s.b * tw * starAlpha;
+          ctx.fillStyle=`rgba(220,200,160,${a})`;
+          ctx.fillRect(Math.floor(s.x),Math.floor(s.y),1,1);
+        });
+      }
+
+      // Light rays from upper right
+      ctx.save();
+      rays.forEach(r=>{
+        const shimmer = 0.7+0.3*Math.sin(t*0.002+r.phase);
+        ctx.strokeStyle=`rgba(255,230,180,${r.alpha*dp*shimmer*2})`;
+        ctx.lineWidth=r.width;
+        ctx.beginPath();
+        const sx = W+10;
+        const sy = -10;
+        const len = 200;
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx+Math.cos(Math.PI+r.angle)*len, sy+Math.sin(Math.PI+r.angle)*len);
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      // Floating motes in light
+      motes.forEach(m=>{
+        m.x += m.vx;
+        m.y += Math.sin(t*0.005+m.p)*0.15;
+        if(m.x > W+5) m.x = -5;
+        const a = 0.15+0.15*Math.sin(t*0.004+m.p);
+        ctx.fillStyle=`rgba(255,240,200,${a*dp*2})`;
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 0.8, 0, Math.PI*2);
+        ctx.fill();
+      });
+
+      // Ground surface
+      const groundY = 58;
+      ctx.fillStyle = SOIL_TOP;
+      ctx.fillRect(0, groundY, W, 3);
+
+      // Soil gradient
+      for(let y=groundY+3;y<H;y++){
+        const depth = (y-groundY)/(H-groundY);
+        const r = 30 - depth*14;
+        const g = 22 - depth*10;
+        const b = 10 - depth*6;
+        ctx.fillStyle=`rgb(${Math.max(0,r)},${Math.max(0,g)},${Math.max(0,b)})`;
+        ctx.fillRect(0,y,W,1);
+      }
+
+      // Soil bits
+      soilBits.forEach(p=>{
+        const br=0.3+p.b*0.4;
+        px(p.x,p.y,`rgb(${Math.floor(42*br)},${Math.floor(34*br)},${Math.floor(18*br)})`);
+      });
+
+      // Soil crack where seedling emerges
+      ctx.strokeStyle='#2a1a0a';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(72, groundY);
+      ctx.lineTo(68, groundY+3);
+      ctx.moveTo(72, groundY);
+      ctx.lineTo(76, groundY+2);
+      ctx.stroke();
+
+      // === ROOT SYSTEM (underground, visible cross-section) ===
+      const stemBaseX = 72;
+      const stemBaseY = groundY + 2;
+
+      ctx.strokeStyle = ROOT_COL;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.6;
+      // Main root going down
+      ctx.beginPath();
+      ctx.moveTo(stemBaseX, stemBaseY);
+      const rootSway = Math.sin(t*0.001)*2;
+      ctx.bezierCurveTo(stemBaseX+rootSway, stemBaseY+15, stemBaseX-2+rootSway, stemBaseY+30, stemBaseX-1, stemBaseY+40);
+      ctx.stroke();
+      // Lateral roots
+      for(let i=0;i<3;i++){
+        const ry = stemBaseY + 10 + i*10;
+        const dir = i%2===0?-1:1;
+        const rlen = 8+i*3;
+        ctx.beginPath();
+        ctx.moveTo(stemBaseX+rootSway*(ry-stemBaseY)/40, ry);
+        ctx.quadraticCurveTo(stemBaseX+dir*rlen*0.6, ry+3, stemBaseX+dir*rlen, ry+5);
+        ctx.stroke();
+      }
+      // Root tip glow
+      ctx.fillStyle='rgba(106,138,74,0.4)';
+      ctx.beginPath();
+      ctx.arc(stemBaseX-1, stemBaseY+40, 2+Math.sin(t*0.005)*0.5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // === STEM ===
+      const stemTopY = 30;
+      const stemH = groundY - stemTopY;
+      ctx.strokeStyle = STEM_GREEN;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      // Slight sway
+      const sway = Math.sin(t*0.002)*1.5;
+      ctx.beginPath();
+      ctx.moveTo(stemBaseX, stemBaseY);
+      ctx.quadraticCurveTo(stemBaseX+sway*0.5, stemBaseY - stemH*0.5, stemBaseX+sway, stemTopY);
+      ctx.stroke();
+
+      // === COTYLEDONS (two leaves opening) ===
+      const cotX = stemBaseX + sway;
+      const cotY = stemTopY;
+      const cotLen = 12;
+      const cotWid = 5;
+
+      // Left cotyledon
+      ctx.save();
+      ctx.translate(cotX, cotY);
+      ctx.rotate(-ca);
+      // Leaf shape
+      ctx.fillStyle = COT_MID;
+      ctx.beginPath();
+      ctx.ellipse(0, -cotLen/2, cotWid, cotLen/2, 0, 0, Math.PI*2);
+      ctx.fill();
+      // Lighter edge
+      ctx.fillStyle = COT_LIGHT;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.ellipse(1, -cotLen/2-1, cotWid-2, cotLen/2-1, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      // Vein
+      ctx.strokeStyle = COT_VEIN;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -cotLen+2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Right cotyledon
+      ctx.save();
+      ctx.translate(cotX, cotY);
+      ctx.rotate(ca);
+      ctx.fillStyle = COT_MID;
+      ctx.beginPath();
+      ctx.ellipse(0, -cotLen/2, cotWid, cotLen/2, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = COT_LIGHT;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.ellipse(-1, -cotLen/2-1, cotWid-2, cotLen/2-1, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = COT_VEIN;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -cotLen+2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Epicotyl bud between cotyledons
+      const budPulse = 0.8+0.2*Math.sin(t*0.006);
+      ctx.fillStyle = EPICOTYL;
+      ctx.globalAlpha = budPulse;
+      ctx.beginPath();
+      ctx.ellipse(cotX, cotY-2, 1.5, 2.5, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Green glow around cotyledons (photosynthesis aura)
+      const glowP = 0.05 + 0.05*Math.sin(t*0.003);
+      ctx.fillStyle = `rgba(120,200,80,${glowP * dp * 2})`;
+      ctx.beginPath();
+      ctx.ellipse(cotX, cotY-5, 18, 14, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // === THEO sitting beside seedling ===
+      const theoX = 115;
+      const theoY = groundY;
+
+      // Body (sitting, relaxed)
+      ctx.fillStyle = THEO_BODY;
+      ctx.beginPath();
+      ctx.ellipse(theoX, theoY-4, 6, 5, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // Head
+      ctx.beginPath();
+      ctx.arc(theoX-3, theoY-10, 5, 0, Math.PI*2);
+      ctx.fill();
+
+      // Ears
+      ctx.beginPath();
+      ctx.moveTo(theoX-7, theoY-14);
+      ctx.lineTo(theoX-5, theoY-10);
+      ctx.lineTo(theoX-3, theoY-14);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(theoX-3, theoY-14);
+      ctx.lineTo(theoX-1, theoY-10);
+      ctx.lineTo(theoX+1, theoY-14);
+      ctx.fill();
+
+      // Mask
+      ctx.fillStyle = THEO_MASK;
+      ctx.beginPath();
+      ctx.ellipse(theoX-5, theoY-10, 3, 2, -0.2, 0, Math.PI*2);
+      ctx.fill();
+
+      // Eyes (looking at seedling, warm)
+      ctx.fillStyle = '#e8e4df';
+      px(theoX-6, theoY-10, '#e8e4df');
+      px(theoX-4, theoY-10, '#e8e4df');
+
+      // Slight smile
+      ctx.strokeStyle = '#e8e4df';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.arc(theoX-5, theoY-8, 2, 0.2, Math.PI-0.2);
+      ctx.stroke();
+
+      // Tail (gently waving)
+      ctx.strokeStyle = THEO_BODY;
+      ctx.lineWidth = 2;
+      const tailW = Math.sin(t*0.004)*3;
+      ctx.beginPath();
+      ctx.moveTo(theoX+5, theoY-3);
+      ctx.quadraticCurveTo(theoX+12, theoY-6+tailW, theoX+10, theoY-12);
+      ctx.stroke();
+
+      // Dashed gaze line to seedling
+      ctx.strokeStyle = 'rgba(180,200,140,0.2)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([2,3]);
+      ctx.beginPath();
+      ctx.moveTo(theoX-5, theoY-9);
+      ctx.lineTo(cotX+5, cotY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // === Horizon glow (dawn warmth at ground line) ===
+      const horizGlow = dp * 0.15;
+      const grad = ctx.createLinearGradient(0, groundY-8, 0, groundY+4);
+      grad.addColorStop(0, `rgba(255,200,120,${horizGlow})`);
+      grad.addColorStop(1, 'rgba(255,200,120,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, groundY-8, W, 12);
+
+      t++;
+      requestAnimationFrame(draw);
+    }
+
+    const obs = new IntersectionObserver(entries=>{
+      entries.forEach(e=>{if(e.isIntersecting) draw();});
+    }, {threshold:0.1});
+    obs.observe(c);
+  })();
+
   // ============ PIXEL ART: Day 54 - The Sprout ============ (Germination Split-View + Hypocotyl Hook) ============
   (function(){
     const c = document.getElementById('pixel-day54');
