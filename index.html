@@ -2187,6 +2187,222 @@
     obs.observe(c);
   })();
 
+  // ============ PIXEL ART: Day 57 - Phyllotaxis (Golden Angle Spiral) ============
+  (function(){
+    const c = document.getElementById('pixel-day57');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0, started=false;
+
+    const GOLDEN_ANGLE = 137.508 * Math.PI / 180;
+    const NUM_LEAVES = 89; // Fibonacci number
+    const CX = W/2, CY = H/2 + 5;
+
+    // Theo sits at center
+    function drawTheo(t) {
+      const bx = CX, by = CY;
+      // body
+      ctx.fillStyle = '#8b7355';
+      ctx.fillRect(bx-3, by-4, 6, 7);
+      // head
+      ctx.fillStyle = '#9c8465';
+      ctx.fillRect(bx-3, by-7, 6, 4);
+      // ears
+      ctx.fillStyle = '#7a6548';
+      ctx.fillRect(bx-4, by-9, 2, 3);
+      ctx.fillRect(bx+2, by-9, 2, 3);
+      // ear insides
+      ctx.fillStyle = '#c4956a';
+      ctx.fillRect(bx-3, by-8, 1, 2);
+      ctx.fillRect(bx+2, by-8, 1, 2);
+      // eyes - looking up
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(bx-2, by-6, 1, 1);
+      ctx.fillRect(bx+1, by-6, 1, 1);
+      // eye shine
+      ctx.fillStyle = '#7ec87e';
+      ctx.globalAlpha = 0.6 + 0.2*Math.sin(t*0.002);
+      ctx.fillRect(bx-2, by-6, 1, 1);
+      ctx.fillRect(bx+1, by-6, 1, 1);
+      ctx.globalAlpha = 1;
+      // nose
+      ctx.fillStyle = '#3a2a1a';
+      ctx.fillRect(bx-0.5, by-5, 1, 1);
+      // mask
+      ctx.fillStyle = '#2a2018';
+      ctx.fillRect(bx-3, by-7, 1, 2);
+      ctx.fillRect(bx+2, by-7, 1, 2);
+      // tail curled
+      const ta = t*0.001;
+      ctx.fillStyle = '#8b7355';
+      for(let i=0;i<8;i++){
+        const a = ta + i*0.3;
+        const r = 4 + i*0.8;
+        const tx = bx + Math.cos(a)*r;
+        const ty = by + 1 + Math.sin(a)*r*0.4;
+        ctx.fillRect(tx, ty, 2, 1);
+      }
+      // stripe on tail
+      ctx.fillStyle = '#2a2018';
+      for(let i=0;i<8;i+=2){
+        const a = ta + i*0.3;
+        const r = 4 + i*0.8;
+        const tx = bx + Math.cos(a)*r;
+        const ty = by + 1 + Math.sin(a)*r*0.4;
+        ctx.fillRect(tx, ty, 1, 1);
+      }
+    }
+
+    // Leaf shape at position
+    function drawLeaf(x, y, angle, size, hue, alpha, growProg) {
+      if(growProg <= 0) return;
+      const s = size * Math.min(growProg, 1);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.globalAlpha = alpha * Math.min(growProg, 1);
+
+      // Leaf blade using bezier-ish pixel fill
+      const len = s * 6;
+      const wid = s * 2.5;
+      for(let i=0; i<len; i++){
+        const frac = i / len;
+        const w = wid * Math.sin(frac * Math.PI) * (1 - frac*0.3);
+        const bright = 0.6 + 0.3 * (1 - frac);
+        const g = Math.floor(hue * bright);
+        const r = Math.floor(g * 0.45);
+        const b = Math.floor(g * 0.2);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(-w/2, -i, Math.max(w, 1), 1);
+      }
+      // midrib
+      ctx.fillStyle = `rgba(200,230,180,0.4)`;
+      for(let i=1; i<len-1; i++){
+        ctx.fillRect(0, -i, 0.5, 1);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    // Auxin field visualization — faint concentration circles
+    function drawAuxinField(t) {
+      const pulse = Math.sin(t * 0.001) * 0.5 + 0.5;
+      for(let i=0; i<5; i++){
+        const r = 8 + i * 10 + pulse * 3;
+        ctx.beginPath();
+        ctx.arc(CX, CY, r, 0, Math.PI*2);
+        ctx.strokeStyle = `rgba(160,200,120,${0.04 - i*0.007})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+
+    // Floating pollen/spore particles
+    const particles = [];
+    for(let i=0; i<15; i++){
+      particles.push({
+        x: Math.random()*W, y: Math.random()*H,
+        vx: (Math.random()-0.5)*0.15, vy: -Math.random()*0.1-0.02,
+        size: Math.random()*1.5+0.5, alpha: Math.random()*0.3+0.1
+      });
+    }
+
+    function draw(){
+      t += 16;
+      ctx.clearRect(0,0,W,H);
+
+      // Background — warm afternoon gradient
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0, '#4a6741');
+      grad.addColorStop(0.3, '#3a5535');
+      grad.addColorStop(1, '#2a3a25');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+
+      // Soft overhead light
+      const lg = ctx.createRadialGradient(CX, CY-20, 5, CX, CY, 65);
+      lg.addColorStop(0, 'rgba(255,255,200,0.08)');
+      lg.addColorStop(1, 'rgba(255,255,200,0)');
+      ctx.fillStyle = lg;
+      ctx.fillRect(0,0,W,H);
+
+      // Auxin field
+      drawAuxinField(t);
+
+      // Draw phyllotaxis spiral of leaves
+      const growSpeed = 0.0003;
+      const totalGrowTime = NUM_LEAVES / growSpeed / 16;
+
+      for(let i = NUM_LEAVES - 1; i >= 0; i--){
+        const angle = i * GOLDEN_ANGLE;
+        const r = 2.5 * Math.sqrt(i) + 6;
+        const x = CX + Math.cos(angle) * r;
+        const y = CY + Math.sin(angle) * r * 0.7; // perspective squash
+
+        // Grow leaves sequentially from center outward
+        const growDelay = i * 300; // ms between each leaf
+        const growProg = Math.max(0, (t - growDelay) * 0.001);
+
+        // Leaf properties
+        const leafAngle = angle + Math.PI/2 + Math.sin(t*0.0008 + i)*0.1;
+        const size = 1.2 + (i/NUM_LEAVES)*1.5;
+        const hue = 140 + Math.sin(i*0.5)*30; // vary green
+        const alpha = 0.5 + 0.4*(1 - i/NUM_LEAVES);
+
+        // Skip leaves that overlap Theo
+        const dx = x - CX, dy = y - CY;
+        if(Math.sqrt(dx*dx+dy*dy) < 10) continue;
+
+        drawLeaf(x, y, leafAngle, size, hue, alpha, growProg);
+      }
+
+      // Theo in center
+      drawTheo(t);
+
+      // Fibonacci spiral overlay — very faint golden curve
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(201,168,124,0.12)';
+      ctx.lineWidth = 0.5;
+      for(let i=0; i<200; i++){
+        const a = i * 0.1;
+        const r = 1.5 * Math.sqrt(a/0.1 * (GOLDEN_ANGLE/(Math.PI*2)));
+        const x = CX + Math.cos(a) * r;
+        const y = CY + Math.sin(a) * r * 0.7;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+
+      // Particles
+      particles.forEach(p => {
+        p.x += p.vx + Math.sin(t*0.001 + p.y*0.1)*0.05;
+        p.y += p.vy;
+        if(p.y < -2) { p.y = H+2; p.x = Math.random()*W; }
+        if(p.x < -2) p.x = W+2;
+        if(p.x > W+2) p.x = -2;
+        ctx.fillStyle = `rgba(220,230,180,${p.alpha * (0.5+0.5*Math.sin(t*0.002+p.x))})`;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      });
+
+      // Subtle vignette
+      const vig = ctx.createRadialGradient(CX, CY, 30, CX, CY, 90);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(0,0,0,0.4)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(0,0,W,H);
+
+      if(started) requestAnimationFrame(draw);
+    }
+
+    const obs57 = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if(e.isIntersecting && !started){ started=true; draw(); }
+        if(!e.isIntersecting){ started=false; }
+      });
+    }, {threshold:0.1});
+    obs57.observe(c);
+  })();
+
   // ============ PIXEL ART: Day 56 - The True Leaf (Generative Venation) ============
   (function(){
     const c = document.getElementById('pixel-day56');
