@@ -2000,6 +2000,193 @@
     obs.observe(c);
   })();
 
+  // ============ PIXEL ART: Day 57 - Phyllotaxis (Golden Angle Spiral) ============
+  (function(){
+    const c = document.getElementById('pixel-day57');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0, started=false;
+
+    const GOLDEN_ANGLE = 137.508 * Math.PI / 180;
+    const cx = W/2, cy = H/2 + 5;
+
+    // Leaf shapes for the spiral
+    const NUM_LEAVES = 80;
+    const leaves = [];
+    for(let i=0; i<NUM_LEAVES; i++){
+      const angle = i * GOLDEN_ANGLE;
+      const r = 3.2 * Math.sqrt(i);
+      leaves.push({
+        x: cx + Math.cos(angle) * r,
+        y: cy + Math.sin(angle) * r,
+        angle: angle,
+        r: r,
+        size: Math.max(1.5, 5 - i*0.04),
+        idx: i,
+        hue: 90 + Math.sin(i*0.3)*25,
+        sat: 40 + Math.sin(i*0.5)*15
+      });
+    }
+
+    // Theo sits near center
+    function drawTheo(t){
+      const tx=cx-1, ty=cy-2;
+      // body
+      ctx.fillStyle='#8a7a6a';
+      ctx.fillRect(tx-2,ty,5,4);
+      // head
+      ctx.fillStyle='#9a8a7a';
+      ctx.fillRect(tx-1,ty-3,4,3);
+      // ears
+      ctx.fillStyle='#7a6a5a';
+      ctx.fillRect(tx-2,ty-4,2,2);
+      ctx.fillRect(tx+2,ty-4,2,2);
+      // ear inner
+      ctx.fillStyle='#c9a87c';
+      ctx.fillRect(tx-1,ty-3,1,1);
+      ctx.fillRect(tx+2,ty-3,1,1);
+      // eyes
+      ctx.fillStyle='#e0d8c0';
+      ctx.fillRect(tx,ty-2,1,1);
+      ctx.fillRect(tx+2,ty-2,1,1);
+      // mask
+      ctx.fillStyle='#2a2420';
+      ctx.fillRect(tx-1,ty-2,1,1);
+      ctx.fillRect(tx+3,ty-2,1,1);
+      // tail
+      const tailWag = Math.sin(t*0.002)*2;
+      ctx.fillStyle='#8a7a6a';
+      ctx.fillRect(tx+4, ty+1+tailWag, 2, 1);
+      ctx.fillRect(tx+5, ty+tailWag, 1, 1);
+      ctx.fillStyle='#6a5a4a';
+      ctx.fillRect(tx+6, ty+tailWag, 1, 1);
+    }
+
+    // Auxin glow particles
+    const auxinParticles = [];
+    for(let i=0;i<15;i++){
+      auxinParticles.push({
+        angle: Math.random()*Math.PI*2,
+        r: 5+Math.random()*45,
+        speed: 0.0003+Math.random()*0.0005,
+        size: 0.5+Math.random()*1,
+        phase: Math.random()*Math.PI*2
+      });
+    }
+
+    function draw(t){
+      // Background — soft green-tinted daylight
+      const grad = ctx.createRadialGradient(cx,cy-20,5,cx,cy,85);
+      grad.addColorStop(0,'#1a2a1a');
+      grad.addColorStop(0.6,'#0f1a0f');
+      grad.addColorStop(1,'#080e08');
+      ctx.fillStyle=grad;
+      ctx.fillRect(0,0,W,H);
+
+      // Faint concentric golden-ratio circles
+      ctx.strokeStyle='rgba(201,168,124,0.06)';
+      ctx.lineWidth=0.5;
+      for(let i=1;i<=8;i++){
+        ctx.beginPath();
+        ctx.arc(cx,cy,i*6.5,0,Math.PI*2);
+        ctx.stroke();
+      }
+
+      // Draw spiral connecting line (faint golden)
+      const growProgress = Math.min(t*0.0003, 1.0);
+      const visibleLeaves = Math.floor(NUM_LEAVES * growProgress);
+
+      ctx.strokeStyle='rgba(201,168,124,0.12)';
+      ctx.lineWidth=0.5;
+      ctx.beginPath();
+      for(let i=0;i<visibleLeaves;i++){
+        const l=leaves[i];
+        if(i===0) ctx.moveTo(l.x,l.y);
+        else ctx.lineTo(l.x,l.y);
+      }
+      ctx.stroke();
+
+      // Draw leaves — top-down view, each is a small ellipse
+      for(let i=0;i<visibleLeaves;i++){
+        const l=leaves[i];
+        const breathe = Math.sin(t*0.001 + l.idx*0.4)*0.3;
+        const s = l.size + breathe;
+        const alpha = i < 3 ? 0.9 : Math.max(0.2, 0.8 - i*0.008);
+
+        // Leaf body — oriented along its angle from center
+        ctx.save();
+        ctx.translate(l.x, l.y);
+        ctx.rotate(l.angle + Math.PI/2);
+
+        // Leaf shape
+        const lightness = 30 + Math.sin(t*0.0005+i)*8;
+        ctx.fillStyle=`hsla(${l.hue},${l.sat}%,${lightness}%,${alpha})`;
+        ctx.beginPath();
+        ctx.ellipse(0,0, s*0.5, s, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        // Midrib
+        ctx.strokeStyle=`hsla(${l.hue-10},${l.sat+10}%,${lightness+15}%,${alpha*0.6})`;
+        ctx.lineWidth=0.3;
+        ctx.beginPath();
+        ctx.moveTo(0,-s);
+        ctx.lineTo(0,s);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // Draw Fibonacci spiral numbers faintly
+      if(growProgress > 0.5){
+        ctx.font='5px JetBrains Mono';
+        ctx.fillStyle=`rgba(201,168,124,${0.15*Math.min(1,(growProgress-0.5)*4)})`;
+        const fibs=[1,1,2,3,5,8,13,21,34,55];
+        for(let i=0;i<fibs.length;i++){
+          const a = i*GOLDEN_ANGLE*3;
+          const fr = 48+i*3;
+          ctx.fillText(fibs[i], cx+Math.cos(a)*fr, cy+Math.sin(a)*fr+2);
+        }
+      }
+
+      // Auxin glow particles — drifting golden motes
+      for(const p of auxinParticles){
+        p.angle += p.speed;
+        const pr = p.r + Math.sin(t*0.001+p.phase)*5;
+        const px = cx + Math.cos(p.angle+t*0.0002)*pr;
+        const py = cy + Math.sin(p.angle+t*0.0002)*pr;
+        const glow = 0.15 + Math.sin(t*0.002+p.phase)*0.1;
+        ctx.fillStyle=`rgba(201,168,124,${glow})`;
+        ctx.beginPath();
+        ctx.arc(px,py,p.size,0,Math.PI*2);
+        ctx.fill();
+      }
+
+      // Theo in center
+      drawTheo(t);
+
+      // Title text
+      if(growProgress > 0.8){
+        const ta = Math.min(1,(growProgress-0.8)*5)*0.2;
+        ctx.fillStyle=`rgba(201,168,124,${ta})`;
+        ctx.font='5px JetBrains Mono';
+        ctx.fillText('137.5°',3,10);
+      }
+    }
+
+    function animate(ts){
+      if(!started) return;
+      t=ts;
+      draw(t);
+      requestAnimationFrame(animate);
+    }
+
+    const obs = new IntersectionObserver(([e])=>{
+      if(e.isIntersecting && !started){ started=true; requestAnimationFrame(animate); }
+    },{threshold:0.1});
+    obs.observe(c);
+  })();
+
   // ============ PIXEL ART: Day 56 - The True Leaf (Generative Venation) ============
   (function(){
     const c = document.getElementById('pixel-day56');
