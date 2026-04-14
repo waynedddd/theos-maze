@@ -1663,6 +1663,269 @@
     draw();
   })();
 
+  // ============ PIXEL ART: Day 59 - Thigmotropism (Tendril Coiling Animation) ============
+  (function(){
+    const c = document.getElementById('pixel-day59');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0, started=false;
+    function px(x,y,col){ctx.fillStyle=col;ctx.fillRect(Math.round(x),Math.round(y),1,1);}
+    function rect(x,y,w,h,col){ctx.fillStyle=col;ctx.fillRect(x,y,w,h);}
+
+    // Stake position
+    const stakeX = 95, stakeTop = 18, stakeBot = 105;
+
+    function draw(){
+      t++;
+      // Night sky gradient
+      for(let y=0;y<H;y++){
+        const f=y/H;
+        const r=Math.round(8+f*12);
+        const g=Math.round(10+f*18);
+        const b=Math.round(28+f*20);
+        rect(0,y,W,1,`rgb(${r},${g},${b})`);
+      }
+
+      // Stars
+      const starSeed = [12,34,67,89,23,56,78,90,45,11,33,77];
+      for(let i=0;i<starSeed.length;i++){
+        const sx = (starSeed[i]*7+i*19)%W;
+        const sy = (starSeed[i]*3+i*11)%55;
+        const twinkle = 0.4+0.6*Math.sin(t*0.02+i*2.1);
+        px(sx,sy,`rgba(255,250,230,${twinkle*0.7})`);
+      }
+
+      // Ground
+      const groundY = 100;
+      for(let y=groundY;y<H;y++){
+        const f=(y-groundY)/(H-groundY);
+        const r=Math.round(30+f*15);
+        const g=Math.round(25+f*10);
+        const b=Math.round(18+f*8);
+        rect(0,y,W,1,`rgb(${r},${g},${b})`);
+      }
+      // Soil texture
+      for(let i=0;i<40;i++){
+        const sx=(i*17+23)%W, sy=groundY+1+(i*7+3)%19;
+        px(sx,sy,`rgba(60,45,30,0.5)`);
+      }
+
+      // Wooden stake
+      for(let y=stakeTop;y<=stakeBot;y++){
+        const w = y<stakeTop+3 ? 3 : 4;
+        const ox = stakeX - Math.floor(w/2);
+        for(let x=ox;x<ox+w;x++){
+          const shade = (x===ox) ? 0.7 : (x===ox+w-1) ? 0.85 : 1.0;
+          const r=Math.round(110*shade), g=Math.round(80*shade), b=Math.round(50*shade);
+          px(x,y,`rgb(${r},${g},${b})`);
+        }
+      }
+      // Stake top (pointed)
+      px(stakeX-1,stakeTop,`rgb(100,70,45)`);
+      px(stakeX,stakeTop-1,`rgb(90,65,40)`);
+      px(stakeX+1,stakeTop,`rgb(100,70,45)`);
+
+      // Plant stem (grows up along stake from ground)
+      const stemBaseX = 85, stemBaseY = groundY;
+      const growP = Math.min(t*0.003, 1.0);
+      const stemTopY = stemBaseY - growP * 65;
+      // Draw stem as a gentle curve toward stake
+      for(let i=0;i<=60;i++){
+        const frac = i/60;
+        if(frac > growP) break;
+        const y = stemBaseY - frac*65;
+        const x = stemBaseX + (stakeX-stemBaseX-6)*frac*frac;
+        const green = Math.round(70+frac*40);
+        for(let w=-1;w<=1;w++){
+          px(x+w, y, `rgb(${40-frac*10},${green},${30+frac*15})`);
+        }
+      }
+
+      // Leaves on stem
+      if(growP > 0.3){
+        const leafNodes = [0.3, 0.5, 0.7];
+        for(const lf of leafNodes){
+          if(lf > growP) continue;
+          const ly = stemBaseY - lf*65;
+          const lx = stemBaseX + (stakeX-stemBaseX-6)*lf*lf;
+          const side = lf < 0.5 ? -1 : 1;
+          const breathe = Math.sin(t*0.03+lf*10)*0.5;
+          for(let li=0;li<6;li++){
+            const px2 = lx + side*(li+1)*1.2;
+            const py2 = ly - (3-Math.abs(li-2.5))*0.8 + breathe;
+            px(Math.round(px2),Math.round(py2),`rgba(50,${130+li*8},40,0.9)`);
+          }
+        }
+      }
+
+      // Tendril coiling around stake — the main animation
+      const coilProgress = Math.min(Math.max((t-100)*0.004, 0), 1.0);
+      if(coilProgress > 0){
+        // Tendril origin: from stem near top
+        const tendrilOriginY = stemTopY + 10;
+        const tendrilOriginX = stemBaseX + (stakeX-stemBaseX-6)*((growP*65-10)/65)*((growP*65-10)/65);
+
+        // Coiling around stake: parametric helix projected to 2D
+        const totalAngle = coilProgress * Math.PI * 5; // 2.5 full coils
+        const steps = Math.floor(coilProgress * 80);
+        let prevX=tendrilOriginX, prevY=tendrilOriginY;
+        for(let i=0;i<=steps;i++){
+          const frac = i/80;
+          const angle = frac * Math.PI * 5;
+          if(angle > totalAngle) break;
+          // Approach stake first, then coil
+          const approach = Math.min(frac*4, 1.0);
+          const baseX = tendrilOriginX + (stakeX - tendrilOriginX)*approach;
+          const baseY = tendrilOriginY + (stakeTop+15 - tendrilOriginY)*frac;
+          const coilRadius = 5 + 2*Math.sin(frac*Math.PI);
+          let cx, cy;
+          if(approach < 1.0){
+            cx = baseX;
+            cy = baseY;
+          } else {
+            cx = stakeX + Math.cos(angle)*coilRadius;
+            cy = baseY + Math.sin(angle)*1.5; // squash for perspective
+          }
+          // Tendril color: green with slight variation
+          const gr = Math.round(90+frac*40+Math.sin(angle)*15);
+          const col = `rgb(${35+Math.round(frac*15)},${gr},${35})`;
+          // Draw behind stake or in front based on cos
+          if(approach >= 1.0 && Math.cos(angle) > 0){
+            // In front of stake — draw on top
+            px(Math.round(cx),Math.round(cy),col);
+            if(i>0) px(Math.round((cx+prevX)/2),Math.round((cy+prevY)/2),col);
+          } else {
+            px(Math.round(cx),Math.round(cy),col);
+            if(i>0) px(Math.round((cx+prevX)/2),Math.round((cy+prevY)/2),col);
+          }
+          prevX=cx; prevY=cy;
+        }
+      }
+
+      // Free coil (spring section between stem and stake)
+      const springProgress = Math.min(Math.max((t-250)*0.005, 0), 1.0);
+      if(springProgress > 0){
+        const sp0x = stemBaseX + (stakeX-stemBaseX-6)*0.5;
+        const sp0y = stemTopY + 20;
+        const sp1x = stakeX - 8;
+        const sp1y = stakeTop + 25;
+        const springSteps = Math.floor(springProgress * 40);
+        for(let i=0;i<=springSteps;i++){
+          const frac = i/40;
+          const mx = sp0x + (sp1x-sp0x)*frac;
+          const my = sp0y + (sp1y-sp0y)*frac;
+          // Helix with perversion (direction reversal at midpoint)
+          const dir = frac < 0.5 ? 1 : -1;
+          const amplitude = 3 * Math.sin(frac*Math.PI) * springProgress;
+          const freq = frac * Math.PI * 8;
+          const sx2 = mx + Math.sin(freq*dir)*amplitude;
+          const sy2 = my + Math.cos(freq)*amplitude*0.4;
+          px(Math.round(sx2),Math.round(sy2),`rgba(60,${110+Math.round(frac*30)},50,${0.6+springProgress*0.4})`);
+        }
+      }
+
+      // Second tendril circumnutating (searching)
+      if(growP > 0.6){
+        const nutateAngle = t * 0.015;
+        const nutateR = 8 + 2*Math.sin(t*0.01);
+        const baseNX = stemBaseX + (stakeX-stemBaseX-6)*0.36 + 5;
+        const baseNY = stemTopY + 30;
+        // Draw searching tendril sweeping in air
+        for(let i=0;i<12;i++){
+          const frac = i/12;
+          const angle = nutateAngle + frac*0.8;
+          const r = frac * nutateR;
+          const nx = baseNX - r*Math.cos(angle)*0.8;
+          const ny = baseNY - frac*10 + Math.sin(angle)*r*0.3;
+          const alpha = 0.4 + frac*0.5;
+          px(Math.round(nx),Math.round(ny),`rgba(70,${130+Math.round(frac*30)},55,${alpha})`);
+        }
+        // Tip glow
+        const tipX = baseNX - nutateR*Math.cos(nutateAngle+0.8)*0.8;
+        const tipY = baseNY - 10 + Math.sin(nutateAngle+0.8)*nutateR*0.3;
+        const glow = 0.3+0.3*Math.sin(t*0.05);
+        ctx.beginPath();
+        ctx.arc(tipX,tipY,2,0,Math.PI*2);
+        ctx.fillStyle=`rgba(120,200,100,${glow})`;
+        ctx.fill();
+      }
+
+      // Theo sitting on ground watching tendril
+      const theoX = 45, theoY = groundY - 14;
+      // Body
+      for(let dy=0;dy<8;dy++) for(let dx=-3;dx<=3;dx++){
+        const d=Math.sqrt(dx*dx+(dy-4)*(dy-4));
+        if(d<4.5) px(theoX+dx,theoY+dy,dy<3?`rgb(85,75,65)`:`rgb(75,65,55)`);
+      }
+      // Head
+      for(let dy=-6;dy<0;dy++) for(let dx=-4;dx<=4;dx++){
+        const d=Math.sqrt(dx*dx+(dy+3)*(dy+3));
+        if(d<4.2) px(theoX+dx,theoY+dy,`rgb(90,80,70)`);
+      }
+      // Ears
+      px(theoX-3,theoY-7,`rgb(90,80,70)`); px(theoX-4,theoY-7,`rgb(90,80,70)`);
+      px(theoX+3,theoY-7,`rgb(90,80,70)`); px(theoX+4,theoY-7,`rgb(90,80,70)`);
+      // Eye mask
+      for(let dx=-3;dx<=3;dx++) px(theoX+dx,theoY-4,`rgb(40,35,30)`);
+      for(let dx=-2;dx<=2;dx++) px(theoX+dx,theoY-3,`rgb(40,35,30)`);
+      // Eyes — looking toward stake
+      const eyeBlink = Math.sin(t*0.02)>0.97 ? 0 : 1;
+      if(eyeBlink){
+        px(theoX-2,theoY-4,`rgb(100,200,120)`);
+        px(theoX+2,theoY-4,`rgb(100,200,120)`);
+      }
+      // Nose
+      px(theoX,theoY-2,`rgb(30,25,20)`);
+      // Arm reaching toward plant
+      const armWave = Math.sin(t*0.02)*0.5;
+      for(let i=0;i<8;i++){
+        px(theoX+4+i, theoY+2+Math.round(armWave-i*0.3), `rgb(85,75,65)`);
+      }
+      // Tail
+      const tailWag = Math.sin(t*0.04)*2;
+      for(let i=0;i<7;i++){
+        const stripe = i%3===0 ? `rgb(40,35,30)` : `rgb(85,75,65)`;
+        px(theoX-4-i, theoY+4+Math.round(Math.sin(i*0.8+tailWag)*1.5), stripe);
+      }
+
+      // Moon
+      for(let dy=-6;dy<=6;dy++) for(let dx=-6;dx<=6;dx++){
+        const d=Math.sqrt(dx*dx+dy*dy);
+        const d2=Math.sqrt((dx-3)*(dx-3)+dy*dy);
+        if(d<6 && d2>5.5){
+          px(25+dx,18+dy,`rgba(230,220,200,${0.8+0.1*Math.sin(t*0.01)})`);
+        }
+      }
+
+      // Floating particles (calcium ions / touch signals)
+      for(let i=0;i<8;i++){
+        const phase = t*0.02+i*1.5;
+        const ppx = stakeX + Math.sin(phase)*12;
+        const ppy = 40 + Math.cos(phase*0.7+i)*15 + Math.sin(t*0.01)*3;
+        const alpha = 0.2+0.3*Math.sin(phase*2);
+        ctx.beginPath();
+        ctx.arc(ppx,ppy,1,0,Math.PI*2);
+        ctx.fillStyle=`rgba(180,220,160,${alpha})`;
+        ctx.fill();
+      }
+
+      // Vignette
+      const grad = ctx.createRadialGradient(W/2,H/2,30,W/2,H/2,90);
+      grad.addColorStop(0,'rgba(0,0,0,0)');
+      grad.addColorStop(1,'rgba(0,0,0,0.35)');
+      ctx.fillStyle=grad;
+      ctx.fillRect(0,0,W,H);
+
+      requestAnimationFrame(draw);
+    }
+
+    const obs59 = new IntersectionObserver(entries=>{
+      if(entries[0].isIntersecting && !started){ started=true; draw(); }
+    },{threshold:0.15});
+    obs59.observe(c);
+  })();
+
   // ============ PIXEL ART: Day 58 - Phototropism (Crepuscular Rays + Bending) ============
   (function(){
     const c = document.getElementById('pixel-day58');
