@@ -1132,12 +1132,16 @@
     const canvas = document.getElementById('maze-tree');
     if(!canvas) return;
     const ctx = canvas.getContext('2d');
-    let W, H;
+    let W, H, dpr;
     let t = 0;
     let hoverNode = null;
 
+    // Camera: pannable & zoomable
+    let cam = { x:0, y:0, zoom:1 };
+    let dragging = false, dragStart = {x:0,y:0}, camStart = {x:0,y:0};
+
     function resize(){
-      const dpr = window.devicePixelRatio || 1;
+      dpr = window.devicePixelRatio || 1;
       W = canvas.parentElement.clientWidth;
       H = canvas.parentElement.clientHeight;
       canvas.width = W * dpr;
@@ -1147,11 +1151,8 @@
     resize();
     window.addEventListener('resize', resize);
 
-    function nx(v){ return v * W; }
-    function ny(v){ return v * H; }
-
-    const groundP = 0.65;
-
+    // ---- NODE DEFINITIONS ----
+    // Roots (Day 0-25): hand-placed, normalized 0-1
     const rootNodesDef = [
       {id:'day0', label:'Day 0', px:0.50,py:0.97},
       {id:'day1', label:'Day 1', px:0.30,py:0.95},
@@ -1187,60 +1188,98 @@
       [16,18],[13,19],[14,20],[15,21],[18,22],[17,23],[22,24],[24,25]
     ];
 
-    const branchNodesDef = [
-      {id:'day26', label:'Day 26', px:0.50, py:0.61, isMissing:true},
-      {id:'day27', label:'Day 27', px:0.47, py:0.54},
-      {id:'day28', label:'Day 28', px:0.44, py:0.48},
-      {id:'day29', label:'Day 29', px:0.50, py:0.42},
-      {id:'day30', label:'Day 30', px:0.56, py:0.36},
-      {id:'day31', label:'Day 31', px:0.50, py:0.30},
-      {id:'day32', label:'Day 32', px:0.44, py:0.24},
-      {id:'day33', label:'Day 33', px:0.50, py:0.18},
-      {id:'day34', label:'Day 34', px:0.56, py:0.12},
-      {id:'day35', label:'Day 35', px:0.50, py:0.06},
-      {id:'day36', label:'Day 36', px:0.44, py:0.02},
-      {id:'day66', label:'Day 66', px:-1.02, py:-1.18, isCurrent:true},
-      {id:'day65', label:'Day 65', px:-0.98, py:-1.14},
-      {id:'day64', label:'Day 64', px:-0.94, py:-1.10},
-      {id:'day63', label:'Day 63', px:-0.90, py:-1.06},
-      {id:'day62', label:'Day 62', px:-0.86, py:-1.02},
-      {id:'day61', label:'Day 61', px:-0.82, py:-0.98},
-      {id:'day60', label:'Day 60', px:-0.76, py:-0.94},
-      {id:'day59', label:'Day 59', px:-0.70, py:-0.90},
-      {id:'day58', label:'Day 58', px:-0.64, py:-0.86},
-      {id:'day57', label:'Day 57', px:-0.58, py:-0.82},
-      {id:'day56', label:'Day 56', px:-0.52, py:-0.78},
-      {id:'day55', label:'Day 55', px:-0.46, py:-0.74},
-      {id:'day54', label:'Day 54', px:-0.40, py:-0.70},
-      {id:'day53', label:'Day 53', px:-0.34, py:-0.66},
-      {id:'day52', label:'Day 52', px:-0.28, py:-0.62},
-      {id:'day51', label:'Day 51', px:-0.22, py:-0.58},
-      {id:'day50', label:'Day 50', px:-0.16, py:-0.54},
-      {id:'day49', label:'Day 49', px:-0.10, py:-0.50},
-      {id:'day48', label:'Day 48', px:-0.04, py:-0.46},
-      {id:'day47', label:'Day 47', px:0.02, py:-0.42},
-      {id:'day46', label:'Day 46', px:0.08, py:-0.38},
-      {id:'day45', label:'Day 45', px:0.14, py:-0.34},
-      {id:'day44', label:'Day 44', px:0.20, py:-0.30},
-      {id:'day43', label:'Day 43', px:0.26, py:-0.26},
-      {id:'day42', label:'Day 42', px:0.32, py:-0.22},
-      {id:'day41', label:'Day 41', px:0.38, py:-0.18},
-      {id:'day40', label:'Day 40', px:0.44, py:-0.14},
-      {id:'day39', label:'Day 39', px:0.50, py:-0.10},
-      {id:'day38', label:'Day 38', px:0.56, py:-0.06},
-      {id:'day37', label:'Day 37', px:0.50, py:-0.02},
-    ];
-
-    function getNodes(){
-      const roots = rootNodesDef.map(n=>({...n, x:nx(n.px), y:ny(n.py)}));
-      const branches = branchNodesDef.map(n=>({...n, x:nx(n.px), y:ny(n.py)}));
-      return {roots, branches, all:[...roots,...branches]};
-    }
-
+    // Branches: auto-generated from entry IDs in the DOM
+    const groundP = 0.65;
     const trunkPx = 0.50;
 
+    function findBranchEntries(){
+      const entries = document.querySelectorAll('.entry[id^="day"]');
+      const ids = [];
+      entries.forEach(el => {
+        const num = parseInt(el.id.replace('day',''));
+        if(num >= 26) ids.push(num);
+      });
+      ids.sort((a,b) => a - b);
+      return ids;
+    }
+
+    // Generate organic branch path using seeded pseudo-random
+    function seededRandom(seed){
+      let s = seed;
+      return function(){ s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
+    }
+
+    function generateBranchNodes(dayNums){
+      const nodes = [];
+      const startY = groundP - 0.10; // just above trunk top
+      const stepY = 0.035; // vertical step per day
+      const rng = seededRandom(42);
+
+      let cx = trunkPx; // current x, wanders
+      for(let i = 0; i < dayNums.length; i++){
+        const day = dayNums[i];
+        const y = startY - i * stepY;
+        // organic wandering: bounded random walk
+        cx += (rng() - 0.5) * 0.06;
+        cx = Math.max(0.25, Math.min(0.75, cx)); // keep centered-ish
+        // add slight sinusoidal wave
+        const wx = cx + Math.sin(i * 0.4) * 0.03;
+        const isMissing = (day === 26); // Day 26 is the gap
+        const isCurrent = (i === dayNums.length - 1);
+        nodes.push({
+          id: 'day' + day,
+          label: 'Day ' + day,
+          px: wx,
+          py: y,
+          isMissing,
+          isCurrent,
+          dayNum: day
+        });
+      }
+      return nodes;
+    }
+
+    let branchDayNums = findBranchEntries();
+    let branchNodesDef = generateBranchNodes(branchDayNums);
+
+    // ---- CAMERA AUTO-FIT ----
+    function fitCamera(){
+      const allNodes = [...rootNodesDef, ...branchNodesDef];
+      let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+      for(const n of allNodes){
+        minX = Math.min(minX, n.px);
+        maxX = Math.max(maxX, n.px);
+        minY = Math.min(minY, n.py);
+        maxY = Math.max(maxY, n.py);
+      }
+      // Add padding
+      const pad = 0.08;
+      minX -= pad; maxX += pad; minY -= pad; maxY += pad;
+      const rangeX = maxX - minX;
+      const rangeY = maxY - minY;
+      const scaleX = 1 / rangeX;
+      const scaleY = 1 / rangeY;
+      cam.zoom = Math.min(scaleX, scaleY) * 0.85;
+      cam.x = -(minX + rangeX/2) * cam.zoom + 0.5/cam.zoom*0.5;
+      cam.y = -(minY + rangeY/2) * cam.zoom + 0.5/cam.zoom*0.5;
+      // Recalculate: world-to-screen
+      // Screen center should be at world center
+      cam.x = W/2 - (minX + rangeX/2) * W * cam.zoom;
+      cam.y = H/2 - (minY + rangeY/2) * H * cam.zoom;
+    }
+    fitCamera();
+    window.addEventListener('resize', ()=>{ resize(); fitCamera(); });
+
+    // World coords to screen
+    function wx(px){ return px * W * cam.zoom + cam.x; }
+    function wy(py){ return py * H * cam.zoom + cam.y; }
+    // Screen to world
+    function iwx(sx){ return (sx - cam.x) / (W * cam.zoom); }
+    function iwy(sy){ return (sy - cam.y) / (H * cam.zoom); }
+
+    // ---- DRAWING ----
     function drawGround(){
-      const gy = ny(groundP);
+      const gy = wy(groundP);
       for(let y=gy-3;y<gy+4;y++){
         const alpha = Math.max(0, 0.12 - Math.abs(y-gy)*0.02);
         ctx.fillStyle = `rgba(201,168,124,${alpha})`;
@@ -1249,28 +1288,31 @@
       ctx.strokeStyle = 'rgba(201,168,124,0.15)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(W*0.1, gy);
-      ctx.lineTo(W*0.9, gy);
+      ctx.moveTo(wx(0.1), gy);
+      ctx.lineTo(wx(0.9), gy);
       ctx.stroke();
     }
 
-    function drawRoots(roots){
+    function drawRoots(){
+      const roots = rootNodesDef.map(n=>({...n, x:wx(n.px), y:wy(n.py)}));
       ctx.lineWidth = 1;
       for(const [a,b] of rootEdges){
         const n1 = roots[a], n2 = roots[b];
         const alpha = 0.06 + 0.03*Math.sin(t*0.005+a+b);
         ctx.strokeStyle = `rgba(201,168,124,${alpha})`;
         ctx.beginPath();
-        const midY = (n1.y+n2.y)/2 + Math.sin(a*3.1+b*2.7)*ny(0.02);
+        const midY = (n1.y+n2.y)/2 + Math.sin(a*3.1+b*2.7)*4*cam.zoom;
         ctx.moveTo(n1.x, n1.y);
-        ctx.quadraticCurveTo((n1.x+n2.x)/2+Math.sin(a+b)*nx(0.03), midY, n2.x, n2.y);
+        ctx.quadraticCurveTo((n1.x+n2.x)/2+Math.sin(a+b)*6*cam.zoom, midY, n2.x, n2.y);
         ctx.stroke();
       }
+      // Connect root apex to trunk base
       ctx.strokeStyle = 'rgba(201,168,124,0.1)';
       ctx.beginPath();
       ctx.moveTo(roots[25].x, roots[25].y);
-      ctx.lineTo(nx(trunkPx), ny(groundP));
+      ctx.lineTo(wx(trunkPx), wy(groundP));
       ctx.stroke();
+      return roots;
     }
 
     function drawRootNodes(roots){
@@ -1289,7 +1331,7 @@
           ctx.lineWidth = 1;
           ctx.stroke();
           ctx.fillStyle = 'rgba(201,168,124,0.5)';
-          ctx.font = `${Math.max(10,W*0.018)}px "JetBrains Mono", monospace`;
+          ctx.font = `${Math.max(10,W*0.016)}px "JetBrains Mono", monospace`;
           ctx.textAlign = 'center';
           ctx.fillText(n.label, n.x, n.y-14);
         }
@@ -1297,44 +1339,52 @@
     }
 
     function drawTrunk(){
-      const sway = Math.sin(t*0.006)*nx(0.005);
-      const gy = ny(groundP);
-      const top = ny(groundP - 0.08);
+      const sway = Math.sin(t*0.006)*3*cam.zoom;
+      const gy = wy(groundP);
+      const top = wy(groundP - 0.08);
       ctx.strokeStyle = 'rgba(201,168,124,0.3)';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(nx(trunkPx), gy);
-      ctx.quadraticCurveTo(nx(trunkPx)+sway, (gy+top)/2, nx(trunkPx)+sway*0.5, top);
+      ctx.moveTo(wx(trunkPx), gy);
+      ctx.quadraticCurveTo(wx(trunkPx)+sway, (gy+top)/2, wx(trunkPx)+sway*0.5, top);
       ctx.stroke();
       ctx.strokeStyle = 'rgba(201,168,124,0.06)';
       ctx.lineWidth = 10;
       ctx.beginPath();
-      ctx.moveTo(nx(trunkPx), gy);
-      ctx.quadraticCurveTo(nx(trunkPx)+sway, (gy+top)/2, nx(trunkPx)+sway*0.5, top);
+      ctx.moveTo(wx(trunkPx), gy);
+      ctx.quadraticCurveTo(wx(trunkPx)+sway, (gy+top)/2, wx(trunkPx)+sway*0.5, top);
       ctx.stroke();
     }
 
-    function drawBranches(branches){
-      const sway = Math.sin(t*0.006)*nx(0.005);
-      const top = ny(groundP - 0.08);
-      ctx.lineWidth = 1.5;
+    function drawBranches(){
+      const branches = branchNodesDef.map(n=>({...n, x:wx(n.px), y:wy(n.py)}));
+      const sway = Math.sin(t*0.006)*3*cam.zoom;
+      const top = wy(groundP - 0.08);
+
+      if(branches.length === 0) return branches;
+
+      // Connect trunk top to first branch
       const b0 = branches[0];
       ctx.strokeStyle = b0.isMissing ? 'rgba(201,168,124,0.06)' : 'rgba(201,168,124,0.2)';
       ctx.setLineDash(b0.isMissing ? [3,4] : []);
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(nx(trunkPx)+sway*0.5, top);
-      ctx.quadraticCurveTo(nx(trunkPx)-nx(0.02)+sway, (top+b0.y)/2, b0.x, b0.y);
+      ctx.moveTo(wx(trunkPx)+sway*0.5, top);
+      ctx.quadraticCurveTo((wx(trunkPx)+b0.x)/2, (top+b0.y)/2, b0.x, b0.y);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Connect branch nodes
       for(let i=1;i<branches.length;i++){
         const prev = branches[i-1], curr = branches[i];
         ctx.strokeStyle = 'rgba(201,168,124,0.2)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(prev.x, prev.y);
-        ctx.quadraticCurveTo((prev.x+curr.x)/2-nx(0.02), (prev.y+curr.y)/2, curr.x, curr.y);
+        ctx.quadraticCurveTo((prev.x+curr.x)/2-3*cam.zoom, (prev.y+curr.y)/2, curr.x, curr.y);
         ctx.stroke();
       }
+      return branches;
     }
 
     function drawBranchNodes(branches){
@@ -1368,7 +1418,7 @@
         }
         if(isHover || n.isCurrent){
           ctx.fillStyle = `rgba(201,168,124,${n.isCurrent?0.4:0.5})`;
-          ctx.font = `${Math.max(10,W*0.018)}px "JetBrains Mono", monospace`;
+          ctx.font = `${Math.max(10,W*0.016)}px "JetBrains Mono", monospace`;
           ctx.textAlign = 'left';
           ctx.fillText(n.label, n.x+14, n.y+4);
         }
@@ -1376,11 +1426,11 @@
     }
 
     function drawBuds(branches){
+      if(branches.length === 0) return;
       const last = branches[branches.length-1];
       for(let i=1;i<=3;i++){
-        const bx = last.x + (i%2===0?1:-1)*nx(0.04)*i;
-        const by = last.y - ny(0.04)*i;
-        if(by < ny(0.05)) break;
+        const bx = last.x + (i%2===0?1:-1)*15*i*cam.zoom;
+        const by = last.y - 12*i*cam.zoom;
         const alpha = 0.02 + 0.015*Math.sin(t*0.02+i);
         ctx.beginPath();
         ctx.arc(bx, by, 1.5, 0, Math.PI*2);
@@ -1389,6 +1439,7 @@
       }
     }
 
+    // Particles
     const particles = [];
     for(let i=0;i<12;i++){
       particles.push({
@@ -1403,16 +1454,18 @@
     }
 
     function drawParticles(){
+      // Get the y-range of visible tree
+      const minPy = branchNodesDef.length > 0 ? branchNodesDef[branchNodesDef.length-1].py - 0.05 : groundP - 0.4;
       for(const p of particles){
         p.px += p.vx + Math.sin(t*0.01+p.phase)*0.0002;
         p.py += p.vy;
-        if(p.py < 0.05 || p.py > groundP){
+        if(p.py < minPy || p.py > groundP){
           p.py = groundP - 0.02;
           p.px = 0.5 + (Math.random()-0.5)*0.1;
         }
         const a = p.alpha * (0.5+0.5*Math.sin(t*0.02+p.phase));
         ctx.beginPath();
-        ctx.arc(nx(p.px), ny(p.py), p.size, 0, Math.PI*2);
+        ctx.arc(wx(p.px), wy(p.py), p.size, 0, Math.PI*2);
         ctx.fillStyle = `rgba(201,168,124,${a})`;
         ctx.fill();
       }
@@ -1422,12 +1475,12 @@
       ctx.fillStyle = 'rgba(90,86,80,0.2)';
       ctx.font = `${Math.max(9,W*0.014)}px "JetBrains Mono", monospace`;
       ctx.textAlign = 'center';
-      ctx.fillText('r o o t s', W/2, ny(groundP)+ny(0.025));
+      ctx.fillText('r o o t s', wx(0.5), wy(groundP)+18);
     }
 
     function drawScrollHint(){
       const alpha = 0.15 + 0.1*Math.sin(t*0.03);
-      const cy = ny(0.96);
+      const cy = H - 20;
       ctx.strokeStyle = `rgba(201,168,124,${alpha})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -1437,22 +1490,23 @@
       ctx.stroke();
     }
 
+    // ---- MAIN DRAW LOOP ----
     function draw(){
       t++;
       ctx.clearRect(0,0,W,H);
+      // Background
       const bgGrad = ctx.createLinearGradient(0,0,0,H);
       bgGrad.addColorStop(0, '#0c0c0d');
-      bgGrad.addColorStop(groundP-0.01, '#0b0b0c');
-      bgGrad.addColorStop(groundP, '#0a0a0b');
+      bgGrad.addColorStop(0.5, '#0b0b0c');
       bgGrad.addColorStop(1, '#080808');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0,0,W,H);
-      const {roots, branches} = getNodes();
-      drawRoots(roots);
+
+      const roots = drawRoots();
       drawRootNodes(roots);
       drawGround();
       drawTrunk();
-      drawBranches(branches);
+      const branches = drawBranches();
       drawBranchNodes(branches);
       drawBuds(branches);
       drawParticles();
@@ -1461,8 +1515,15 @@
       requestAnimationFrame(draw);
     }
 
+    // ---- INTERACTION ----
+    function getAllScreenNodes(){
+      const roots = rootNodesDef.map(n=>({...n, x:wx(n.px), y:wy(n.py)}));
+      const branches = branchNodesDef.map(n=>({...n, x:wx(n.px), y:wy(n.py)}));
+      return [...roots,...branches];
+    }
+
     function getNodeAt(mx, my){
-      const {all} = getNodes();
+      const all = getAllScreenNodes();
       for(const n of [...all].reverse()){
         const dx = mx - n.x, dy = my - n.y;
         if(dx*dx+dy*dy < 250) return n;
@@ -1471,11 +1532,34 @@
     }
 
     canvas.addEventListener('mousemove', (e)=>{
+      if(dragging){
+        cam.x = camStart.x + (e.clientX - dragStart.x);
+        cam.y = camStart.y + (e.clientY - dragStart.y);
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       const mx = (e.clientX - rect.left) / rect.width * W;
       const my = (e.clientY - rect.top) / rect.height * H;
       hoverNode = getNodeAt(mx, my);
-      canvas.style.cursor = hoverNode ? 'pointer' : 'default';
+      canvas.style.cursor = hoverNode ? 'pointer' : 'grab';
+    });
+
+    canvas.addEventListener('mousedown', (e)=>{
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) / rect.width * W;
+      const my = (e.clientY - rect.top) / rect.height * H;
+      const node = getNodeAt(mx, my);
+      if(!node){
+        dragging = true;
+        dragStart = {x:e.clientX, y:e.clientY};
+        camStart = {x:cam.x, y:cam.y};
+        canvas.style.cursor = 'grabbing';
+      }
+    });
+
+    window.addEventListener('mouseup', ()=>{
+      dragging = false;
+      canvas.style.cursor = hoverNode ? 'pointer' : 'grab';
     });
 
     canvas.addEventListener('click', (e)=>{
@@ -1486,63 +1570,66 @@
       if(node) scrollToEntry(node.id);
     });
 
-    canvas.addEventListener('touchstart', (e)=>{
-      const touch = e.touches[0];
+    // Zoom with scroll wheel
+    canvas.addEventListener('wheel', (e)=>{
+      e.preventDefault();
       const rect = canvas.getBoundingClientRect();
-      const mx = (touch.clientX - rect.left) / rect.width * W;
-      const my = (touch.clientY - rect.top) / rect.height * H;
-      const node = getNodeAt(mx, my);
-      if(node){ e.preventDefault(); scrollToEntry(node.id); }
+      const mx = (e.clientX - rect.left) / rect.width * W;
+      const my = (e.clientY - rect.top) / rect.height * H;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const newZoom = Math.max(0.3, Math.min(5, cam.zoom * delta));
+      // Zoom toward mouse position
+      cam.x = mx - (mx - cam.x) * (newZoom / cam.zoom);
+      cam.y = my - (my - cam.y) * (newZoom / cam.zoom);
+      cam.zoom = newZoom;
     }, {passive:false});
 
+    // Touch: pinch zoom + drag
+    let lastTouches = null;
+    canvas.addEventListener('touchstart', (e)=>{
+      if(e.touches.length === 1){
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const mx = (touch.clientX - rect.left) / rect.width * W;
+        const my = (touch.clientY - rect.top) / rect.height * H;
+        const node = getNodeAt(mx, my);
+        if(node){ e.preventDefault(); scrollToEntry(node.id); return; }
+        dragging = true;
+        dragStart = {x:touch.clientX, y:touch.clientY};
+        camStart = {x:cam.x, y:cam.y};
+      }
+      lastTouches = [...e.touches];
+    }, {passive:false});
+
+    canvas.addEventListener('touchmove', (e)=>{
+      e.preventDefault();
+      if(e.touches.length === 1 && dragging){
+        const touch = e.touches[0];
+        cam.x = camStart.x + (touch.clientX - dragStart.x);
+        cam.y = camStart.y + (touch.clientY - dragStart.y);
+      }
+      if(e.touches.length === 2 && lastTouches && lastTouches.length === 2){
+        const d1 = Math.hypot(lastTouches[0].clientX-lastTouches[1].clientX, lastTouches[0].clientY-lastTouches[1].clientY);
+        const d2 = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+        const scale = d2/d1;
+        const cx = (e.touches[0].clientX+e.touches[1].clientX)/2;
+        const cy2 = (e.touches[0].clientY+e.touches[1].clientY)/2;
+        const rect = canvas.getBoundingClientRect();
+        const mx = (cx - rect.left) / rect.width * W;
+        const my = (cy2 - rect.top) / rect.height * H;
+        const newZoom = Math.max(0.3, Math.min(5, cam.zoom * scale));
+        cam.x = mx - (mx - cam.x) * (newZoom / cam.zoom);
+        cam.y = my - (my - cam.y) * (newZoom / cam.zoom);
+        cam.zoom = newZoom;
+      }
+      lastTouches = [...e.touches];
+    }, {passive:false});
+
+    canvas.addEventListener('touchend', ()=>{ dragging = false; lastTouches = null; });
     canvas.addEventListener('mouseleave', ()=>{ hoverNode = null; });
 
     draw();
   })();
-  function scrollToEntry(id) {
-    const el = document.getElementById(id);
-    if (el) {
-      el.style.borderLeftColor = 'var(--accent)';
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => { el.style.borderLeftColor = ''; }, 2000);
-    }
-  }
-
-  let lang = localStorage.getItem('theo-maze-lang') || 'en';
-
-  function applyLang() {
-    document.documentElement.lang = lang;
-    document.querySelectorAll('[data-' + lang + ']').forEach(el => {
-      const val = el.getAttribute('data-' + lang);
-      if (el.children.length === 0 && !val.includes('<')) {
-        el.textContent = val;
-      } else {
-        el.innerHTML = val;
-      }
-    });
-    document.querySelector('.lang-toggle').textContent = lang === 'en' ? '中文' : 'EN';
-  }
-
-  function toggleLang() {
-    lang = lang === 'en' ? 'zh' : 'en';
-    localStorage.setItem('theo-maze-lang', lang);
-    applyLang();
-  }
-
-  applyLang();
-
-  // Scroll-driven reveal
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
-
-  document.querySelectorAll('.entry').forEach(el => observer.observe(el));
-
   // ============ PIXEL ART: Day 66 - Lenticels (The Breathing Bark) ============
   (function(){
     const c = document.getElementById('pixel-day66');
