@@ -1616,7 +1616,7 @@
       const mx2 = (e.clientX - rect.left) / rect.width * W;
       const my2 = (e.clientY - rect.top) / rect.height * H;
       const node = getNodeAt(mx2, my2);
-      if(node) scrollToEntry(node.id);
+      if(node){ const el=document.getElementById(node.id); if(el){el.classList.add('visible'); el.scrollIntoView({behavior:'smooth',block:'center'});} }
     });
 
     canvas.addEventListener('wheel', (e)=>{
@@ -1640,7 +1640,7 @@
         const mx2 = (touch.clientX - rect.left) / rect.width * W;
         const my2 = (touch.clientY - rect.top) / rect.height * H;
         const node = getNodeAt(mx2, my2);
-        if(node){ e.preventDefault(); scrollToEntry(node.id); return; }
+        if(node){ e.preventDefault(); const el=document.getElementById(node.id); if(el){el.classList.add('visible'); el.scrollIntoView({behavior:'smooth',block:'center'});} return; }
         dragging = true;
         dragStart = {x:touch.clientX, y:touch.clientY};
         camStart = {x:cam.x, y:cam.y};
@@ -11942,6 +11942,17 @@
     },{threshold:0.1});
     obs.observe(c);
   })();
+
+  // Scroll-driven reveal for entries
+  const entryObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        entryObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+  document.querySelectorAll('.entry').forEach(el => entryObserver.observe(el));
 </script>
 </body>
 </html>
