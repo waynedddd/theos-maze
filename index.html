@@ -1171,9 +1171,9 @@
         const num = parseInt(el.id.replace('day',''));
         const titleEl = el.querySelector('.entry-title');
         const title = titleEl ? (titleEl.getAttribute('data-en') || titleEl.textContent) : 'Day '+num;
-        days.push({num, id:el.id, title});
+        days.push({num, id:el.id, label:'Day '+num, title});
       });
-      days.sort((a,b) => a - b);
+      days.sort((a,b) => a.num - b.num);
       return days;
     }
 
