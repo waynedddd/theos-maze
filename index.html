@@ -1620,6 +1620,7 @@
     });
 
     canvas.addEventListener('wheel', (e)=>{
+      if(!e.ctrlKey && !e.metaKey) return; // normal scroll passes through
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       const mx2 = (e.clientX - rect.left) / rect.width * W;
