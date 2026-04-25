@@ -3122,6 +3122,338 @@
     draw();
   })();
 
+  // ============ PIXEL ART: Day 70 - Nectar (Sweetness and Exchange) ============
+  (function(){
+    const c = document.getElementById('pixel-day70');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0;
+
+    // Nectar drop particles falling inside the flower
+    const drops = [];
+    for(let i=0;i<8;i++){
+      drops.push({
+        x: 68+Math.random()*24,
+        y: 40+Math.random()*30,
+        speed: 0.08+Math.random()*0.06,
+        size: 1+Math.random()*1.5,
+        phase: Math.random()*Math.PI*2,
+        life: Math.random()
+      });
+    }
+
+    // Bee path (figure-eight approach)
+    const bees = [
+      {phase:0, orbitR:35, speed:0.012, size:4},
+      {phase:Math.PI, orbitR:28, speed:0.009, size:3}
+    ];
+
+    // Caffeine molecule hint particles (tiny sparkles in nectar pool)
+    const sparkles = [];
+    for(let i=0;i<12;i++){
+      sparkles.push({
+        angle: Math.random()*Math.PI*2,
+        r: Math.random()*10,
+        speed: 0.005+Math.random()*0.008,
+        bright: Math.random()
+      });
+    }
+
+    function px(x,y,r,g,b,a){
+      if(a===undefined) a=1;
+      ctx.fillStyle=`rgba(${r},${g},${b},${a})`;
+      ctx.fillRect(Math.floor(x),Math.floor(y),1,1);
+    }
+
+    function draw(){
+      t++;
+      ctx.clearRect(0,0,W,H);
+
+      // Night sky gradient (deep blue-violet)
+      for(let y=0;y<H;y++){
+        const f=y/H;
+        const r=Math.floor(8+f*12);
+        const g=Math.floor(6+f*15);
+        const b=Math.floor(28+f*18);
+        ctx.fillStyle=`rgb(${r},${g},${b})`;
+        ctx.fillRect(0,y,W,1);
+      }
+
+      // Stars
+      const starSeed = [12,34,56,78,91,23,45,67,89,10,33,55,77,99,11];
+      for(let i=0;i<starSeed.length;i++){
+        const sx = (starSeed[i]*13+i*37)%W;
+        const sy = (starSeed[i]*7+i*19)%(H*0.4);
+        const bright = 0.3+0.4*Math.sin(t*0.02+i*1.7);
+        px(sx,sy,220,215,200,bright);
+      }
+
+      // Moon (crescent, upper right)
+      const mx=128, my=18, mr=8;
+      for(let dy=-mr;dy<=mr;dy++){
+        for(let dx=-mr;dx<=mr;dx++){
+          const d=Math.sqrt(dx*dx+dy*dy);
+          const d2=Math.sqrt((dx-3)*(dx-3)+(dy-1)*(dy-1));
+          if(d<mr && d2>mr-1){
+            const bright=0.5+0.2*Math.sin(t*0.01);
+            px(mx+dx,my+dy,230,225,200,bright*(1-d/mr*0.3));
+          }
+        }
+      }
+
+      // Flower stem
+      const stemBaseX=80, stemBaseY=110, stemTopY=45;
+      for(let y=stemTopY;y<=stemBaseY;y++){
+        const frac=(y-stemTopY)/(stemBaseY-stemTopY);
+        const sway=Math.sin(t*0.008+frac*2)*2*(1-frac);
+        const cx=stemBaseX+sway;
+        const w=1+frac*0.8;
+        for(let dx=-w;dx<=w;dx++){
+          const light=0.7+0.3*(dx/w);
+          const gr=Math.floor(40+25*light);
+          const gg=Math.floor(80+40*light-frac*20);
+          const gb=Math.floor(30+15*light);
+          px(cx+dx,y,gr,gg,gb);
+        }
+      }
+
+      // Flower petals (5 petals, open, seen from slight angle)
+      const flowerCX=80+Math.sin(t*0.008)*2;
+      const flowerCY=45;
+      const petalCount=5;
+      const bloomBreath=1+0.03*Math.sin(t*0.02);
+      for(let p=0;p<petalCount;p++){
+        const angle = (p/petalCount)*Math.PI*2 - Math.PI/2;
+        const petalLen=18*bloomBreath;
+        const petalW=8*bloomBreath;
+        // Draw petal as filled ellipse along angle
+        for(let along=0;along<petalLen;along++){
+          const frac=along/petalLen;
+          const width=petalW*Math.sin(frac*Math.PI)*0.8;
+          const px1=flowerCX+Math.cos(angle)*along;
+          const py1=flowerCY+Math.sin(angle)*along*0.55; // perspective compression
+          for(let perp=-width;perp<=width;perp++){
+            const perpFrac=Math.abs(perp)/width;
+            // Petal color: soft warm pink-white with vein
+            const isVein = Math.abs(perp)<0.8 && frac>0.2;
+            let pr,pg,pb;
+            if(isVein){
+              pr=180; pg=140; pb=120;
+            } else {
+              // gradient from center (warm) to tip (cooler pink)
+              pr=Math.floor(220-frac*40+perpFrac*15);
+              pg=Math.floor(190-frac*50-perpFrac*20);
+              pb=Math.floor(180-frac*20+perpFrac*10);
+            }
+            const alpha=0.85-perpFrac*0.3-frac*0.15;
+            const ppx=px1+Math.cos(angle+Math.PI/2)*perp;
+            const ppy=py1+Math.sin(angle+Math.PI/2)*perp*0.55;
+            if(ppx>=0&&ppx<W&&ppy>=0&&ppy<H){
+              ctx.fillStyle=`rgba(${pr},${pg},${pb},${Math.max(0,alpha)})`;
+              ctx.fillRect(Math.floor(ppx),Math.floor(ppy),1,1);
+            }
+          }
+        }
+      }
+
+      // Flower center (nectary visible — golden pool)
+      const nectarR=6;
+      for(let dy=-nectarR;dy<=nectarR;dy++){
+        for(let dx=-nectarR;dx<=nectarR;dx++){
+          const d=Math.sqrt(dx*dx+dy*dy*3); // elliptical
+          if(d<nectarR){
+            const df=d/nectarR;
+            const pulse=0.8+0.2*Math.sin(t*0.03+dx*0.5);
+            const nr=Math.floor(200*pulse-df*40);
+            const ng=Math.floor(160*pulse-df*30);
+            const nb=Math.floor(40*pulse);
+            const na=0.9-df*0.3;
+            ctx.fillStyle=`rgba(${nr},${ng},${nb},${na})`;
+            ctx.fillRect(Math.floor(flowerCX+dx),Math.floor(flowerCY+dy*0.4),1,1);
+          }
+        }
+      }
+
+      // Nectar glow (warm radial from center)
+      const glowR=14;
+      for(let dy=-glowR;dy<=glowR;dy++){
+        for(let dx=-glowR;dx<=glowR;dx++){
+          const d=Math.sqrt(dx*dx+dy*dy);
+          if(d<glowR && d>nectarR-1){
+            const pulse=0.12+0.06*Math.sin(t*0.025);
+            ctx.fillStyle=`rgba(210,170,60,${pulse*(1-d/glowR)})`;
+            ctx.fillRect(Math.floor(flowerCX+dx),Math.floor(flowerCY+dy*0.5),1,1);
+          }
+        }
+      }
+
+      // Sparkles in nectar (caffeine molecules / dissolved sugars)
+      for(let i=0;i<sparkles.length;i++){
+        const s=sparkles[i];
+        s.angle+=s.speed;
+        const sx=flowerCX+Math.cos(s.angle)*s.r*0.8;
+        const sy=flowerCY+Math.sin(s.angle)*s.r*0.3;
+        const bright=0.4+0.4*Math.sin(t*0.04+i*2.1);
+        px(sx,sy,255,230,140,bright);
+      }
+
+      // Nectar drops (dripping from nectary, slowly falling)
+      for(let i=0;i<drops.length;i++){
+        const d=drops[i];
+        d.life+=d.speed*0.01;
+        if(d.life>1) d.life=0;
+        const dy_off=d.life*25;
+        const dx_drift=Math.sin(t*0.015+d.phase)*1.5;
+        const alpha=0.7-d.life*0.6;
+        if(alpha>0){
+          // Golden drop
+          const ddx=d.x+dx_drift;
+          const ddy=d.y+dy_off;
+          ctx.fillStyle=`rgba(220,180,60,${alpha})`;
+          ctx.beginPath();
+          ctx.arc(ddx,ddy,d.size,0,Math.PI*2);
+          ctx.fill();
+          // Highlight
+          px(ddx-0.5,ddy-0.5,255,240,180,alpha*0.8);
+        }
+      }
+
+      // Bees approaching / orbiting flower
+      for(let i=0;i<bees.length;i++){
+        const b=bees[i];
+        b.phase+=b.speed;
+        const bx=flowerCX+Math.cos(b.phase)*b.orbitR;
+        const by=flowerCY+Math.sin(b.phase)*b.orbitR*0.5+5;
+        // Only draw when "in front" (simple depth)
+        const depthAlpha = 0.5+0.5*Math.sin(b.phase);
+        // Bee body
+        const bs=b.size;
+        // Abdomen (striped)
+        for(let s=-bs;s<=bs;s++){
+          const stripe=(Math.floor(Math.abs(s))%2===0);
+          const cr=stripe?50:210;
+          const cg=stripe?40:180;
+          const cb=stripe?10:40;
+          px(bx+s,by,cr,cg,cb,depthAlpha);
+          if(Math.abs(s)<bs-1){
+            px(bx+s,by-1,cr,cg,cb,depthAlpha*0.8);
+            px(bx+s,by+1,cr,cg,cb,depthAlpha*0.7);
+          }
+        }
+        // Wings (translucent, beating)
+        const wingBeat=Math.sin(t*0.3+i*3)*2;
+        ctx.fillStyle=`rgba(200,210,230,${0.35*depthAlpha})`;
+        ctx.beginPath();
+        ctx.ellipse(bx-1,by-2+wingBeat,3,1.5,0,0,Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(bx+1,by-2-wingBeat*0.5,2.5,1.2,0,0,Math.PI*2);
+        ctx.fill();
+        // Trail (golden pollen dust on legs)
+        if(Math.random()>0.7){
+          px(bx+Math.random()*4-2,by+2+Math.random()*2,200,170,50,0.3*depthAlpha);
+        }
+      }
+
+      // Ground
+      for(let x=0;x<W;x++){
+        for(let y=105;y<H;y++){
+          const gf=(y-105)/15;
+          const gr=Math.floor(18+gf*8+(Math.sin(x*0.7+y*1.3)*3));
+          const gg=Math.floor(20+gf*5+(Math.cos(x*1.1)*2));
+          const gb=Math.floor(12+gf*4);
+          px(x,y,gr,gg,gb,0.8+gf*0.2);
+        }
+      }
+
+      // Small grass tufts
+      for(let i=0;i<8;i++){
+        const gx=(i*23+7)%W;
+        const gh=3+Math.sin(i*1.7)*2;
+        const sway2=Math.sin(t*0.01+i)*1;
+        for(let gy=0;gy<gh;gy++){
+          const gfrac=gy/gh;
+          px(gx+sway2*gfrac,105-gy,35+gfrac*15,65+gfrac*20,25,0.6);
+        }
+      }
+
+      // Theo (sitting right of flower, looking at the nectar glow)
+      const tx=112, ty=88;
+      // Body
+      for(let dy2=-6;dy2<=4;dy2++){
+        for(let dx2=-4;dx2<=4;dx2++){
+          const d=Math.sqrt(dx2*dx2*0.8+dy2*dy2);
+          if(d<5){
+            const fur=0.7+0.2*Math.sin(dx2+dy2*0.5);
+            px(tx+dx2,ty+dy2,Math.floor(90*fur),Math.floor(85*fur),Math.floor(75*fur));
+          }
+        }
+      }
+      // Head
+      const hx=tx, hy=ty-9;
+      for(let dy2=-5;dy2<=3;dy2++){
+        for(let dx2=-5;dx2<=5;dx2++){
+          const d=Math.sqrt(dx2*dx2+dy2*dy2);
+          if(d<5){
+            const fur=0.8+0.15*Math.sin(dx2*0.8);
+            px(hx+dx2,hy+dy2,Math.floor(95*fur),Math.floor(90*fur),Math.floor(80*fur));
+          }
+        }
+      }
+      // Mask (dark around eyes)
+      for(let dx2=-4;dx2<=4;dx2++){
+        for(let dy2=-2;dy2<=1;dy2++){
+          const d=Math.sqrt(dx2*dx2*0.5+dy2*dy2);
+          if(d<3){
+            px(hx+dx2,hy+dy2,30,25,20,0.7);
+          }
+        }
+      }
+      // Eyes (looking left toward flower, with golden nectar reflection)
+      const eyePulse=0.7+0.3*Math.sin(t*0.03);
+      px(hx-2,hy-1,180*eyePulse,160*eyePulse,40,1);
+      px(hx+1,hy-1,180*eyePulse,160*eyePulse,40,1);
+      // Ears
+      px(hx-4,hy-5,80,75,65); px(hx-3,hy-5,80,75,65);
+      px(hx+3,hy-5,80,75,65); px(hx+4,hy-5,80,75,65);
+      // Nose
+      px(hx,hy+1,20,15,10);
+      // Tail (with gentle sway)
+      const tailSway=Math.sin(t*0.02)*3;
+      for(let i=0;i<8;i++){
+        const tf=i/8;
+        const ttx=tx+4+i*1.2+tailSway*tf;
+        const tty=ty+2-Math.sin(tf*Math.PI)*3;
+        const stripe2=(i%3===0)?0.4:0.8;
+        px(ttx,tty,90*stripe2,85*stripe2,75*stripe2);
+        px(ttx,tty+1,85*stripe2,80*stripe2,70*stripe2);
+      }
+
+      // Golden light line connecting Theo's gaze to flower center
+      const gazeAlpha=0.06+0.03*Math.sin(t*0.02);
+      ctx.strokeStyle=`rgba(210,170,60,${gazeAlpha})`;
+      ctx.lineWidth=0.5;
+      ctx.setLineDash([2,3]);
+      ctx.beginPath();
+      ctx.moveTo(hx-3,hy);
+      ctx.lineTo(flowerCX+5,flowerCY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // "nectar" label fade-in
+      if(t>300){
+        const labelAlpha=Math.min(0.35,(t-300)*0.001);
+        ctx.font='6px JetBrains Mono';
+        ctx.fillStyle=`rgba(210,170,60,${labelAlpha})`;
+        ctx.fillText('nectary',60,75);
+      }
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+
   // ============ PIXEL ART: Day 69 - Pollen (Dispersal and Trust) ============
   (function(){
     const c = document.getElementById('pixel-day69');
