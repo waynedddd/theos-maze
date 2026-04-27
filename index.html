@@ -1970,6 +1970,219 @@
     }
     draw();
   })();
+  // ============ PIXEL ART: Day 72 - Dispersal (Scattering Seeds on Wind) ============
+  (function(){
+    const c = document.getElementById('pixel-day72');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0;
+
+    // Dandelion seeds floating on wind
+    const seeds = [];
+    for(let i=0;i<18;i++){
+      seeds.push({
+        x: 60+Math.random()*30,
+        y: 30+Math.random()*40,
+        vx: 0.2+Math.random()*0.4,
+        vy: -0.3+Math.random()*0.6,
+        phase: Math.random()*Math.PI*2,
+        size: 1.5+Math.random()*1.5,
+        bristles: 3+Math.floor(Math.random()*4),
+        drift: Math.random()*0.02+0.01,
+        born: -Math.random()*300
+      });
+    }
+
+    // Dandelion head (source) - partially blown
+    const HEAD_X = 55, HEAD_Y = 60;
+
+    // Wind particles (subtle streaks)
+    const winds = [];
+    for(let i=0;i<25;i++){
+      winds.push({
+        x: Math.random()*W,
+        y: Math.random()*H,
+        len: 5+Math.random()*12,
+        speed: 0.5+Math.random()*1,
+        phase: Math.random()*Math.PI*2
+      });
+    }
+
+    function draw(){
+      t++;
+      ctx.clearRect(0,0,W,H);
+
+      // Sky gradient - soft twilight blue
+      for(let y=0;y<H;y++){
+        const f=y/H;
+        const r=Math.floor(15+f*15), g=Math.floor(18+f*12), b=Math.floor(40-f*10);
+        ctx.fillStyle=`rgb(${r},${g},${b})`;
+        ctx.fillRect(0,y,W,1);
+      }
+
+      // Distant hills
+      for(let x=0;x<W;x++){
+        const hillH = H-20 + Math.sin(x*0.02)*8 + Math.sin(x*0.05+2)*4;
+        ctx.fillStyle='rgba(20,30,18,0.6)';
+        ctx.fillRect(x,hillH,1,H-hillH);
+      }
+
+      // Ground
+      for(let x=0;x<W;x++){
+        const gh = H-12 + Math.sin(x*0.1)*2;
+        for(let y2=Math.floor(gh);y2<H;y2++){
+          const gf=(y2-gh)/14;
+          ctx.fillStyle=`rgba(${30+gf*10|0},${40+gf*8|0},${20+gf*5|0},0.9)`;
+          ctx.fillRect(x,y2,1,1);
+        }
+      }
+
+      // Dandelion stem
+      ctx.strokeStyle='rgba(60,80,40,0.8)';
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      const stemSway = Math.sin(t*0.02)*1.5;
+      ctx.moveTo(HEAD_X+stemSway*0.3, H-12);
+      ctx.quadraticCurveTo(HEAD_X+stemSway*0.6, HEAD_Y+20, HEAD_X+stemSway, HEAD_Y);
+      ctx.stroke();
+
+      // Dandelion head (partially gone - just a few bristles remaining)
+      const remaining = Math.max(3, 8 - Math.floor(t/200)%6);
+      for(let i=0;i<remaining;i++){
+        const angle = (i/remaining)*Math.PI*2 + t*0.001;
+        const bx = HEAD_X+stemSway + Math.cos(angle)*3;
+        const by = HEAD_Y + Math.sin(angle)*3;
+        ctx.strokeStyle='rgba(200,200,180,0.5)';
+        ctx.lineWidth=0.5;
+        ctx.beginPath();
+        ctx.moveTo(HEAD_X+stemSway, HEAD_Y);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        // Tiny pappus at tip
+        ctx.fillStyle='rgba(220,220,200,0.4)';
+        ctx.beginPath();
+        ctx.arc(bx,by,1.2,0,Math.PI*2);
+        ctx.fill();
+      }
+      // Center receptacle
+      ctx.fillStyle='rgba(180,170,140,0.7)';
+      ctx.beginPath();
+      ctx.arc(HEAD_X+stemSway, HEAD_Y, 2.5, 0, Math.PI*2);
+      ctx.fill();
+
+      // Wind streaks
+      for(const w of winds){
+        w.x += w.speed;
+        const wy = w.y + Math.sin(t*0.01+w.phase)*0.3;
+        if(w.x > W+w.len) w.x = -w.len;
+        const wa = 0.06 + 0.03*Math.sin(t*0.02+w.phase);
+        ctx.strokeStyle=`rgba(180,200,220,${wa})`;
+        ctx.lineWidth=0.5;
+        ctx.beginPath();
+        ctx.moveTo(w.x, wy);
+        ctx.lineTo(w.x+w.len, wy+Math.sin(w.phase)*1);
+        ctx.stroke();
+      }
+
+      // Floating seeds (dandelion achenes with pappus)
+      for(const s of seeds){
+        if(t < s.born) continue;
+        const age = t - s.born;
+
+        // Gentle physics
+        s.x += s.vx + Math.sin(t*s.drift+s.phase)*0.3;
+        s.vy += Math.sin(t*0.008+s.phase)*0.005; // turbulence
+        s.y += s.vy + Math.sin(t*0.015+s.phase*2)*0.2;
+
+        // Reset if off screen
+        if(s.x > W+10 || s.y < -20 || s.y > H+10){
+          s.x = HEAD_X + (Math.random()-0.5)*10;
+          s.y = HEAD_Y + (Math.random()-0.5)*8;
+          s.vx = 0.2+Math.random()*0.4;
+          s.vy = -0.3+Math.random()*0.5;
+          s.born = t;
+        }
+
+        // Draw seed body (tiny dark achene)
+        ctx.fillStyle='rgba(80,70,50,0.8)';
+        ctx.fillRect(s.x-0.5, s.y, 1, 2);
+
+        // Draw pappus (feathery top) - radiating lines
+        const rot = Math.sin(t*0.01+s.phase)*0.3;
+        for(let b=0;b<s.bristles;b++){
+          const bAngle = -Math.PI/2 + (b/(s.bristles-1)-0.5)*Math.PI*0.8 + rot;
+          const bLen = s.size*2.5;
+          const bx2 = s.x + Math.cos(bAngle)*bLen;
+          const by2 = s.y + Math.sin(bAngle)*bLen;
+          ctx.strokeStyle='rgba(220,215,200,0.6)';
+          ctx.lineWidth=0.4;
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y);
+          ctx.lineTo(bx2, by2);
+          ctx.stroke();
+          // Tiny barbs
+          ctx.fillStyle='rgba(240,235,220,0.4)';
+          ctx.beginPath();
+          ctx.arc(bx2, by2, 0.7, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      // Theo sitting on ground, watching seeds float away
+      const tx=125, ty=104;
+      // Body
+      ctx.fillStyle='rgba(80,75,70,0.9)';
+      ctx.fillRect(tx-3,ty-5,7,6);
+      // Head
+      for(let dx=-3;dx<=3;dx++){
+        for(let dy=-4;dy<=0;dy++){
+          if(dx*dx+dy*dy<=12){
+            ctx.fillStyle='rgba(90,85,80,0.95)';
+            ctx.fillRect(tx+dx,ty-8+dy,1,1);
+          }
+        }
+      }
+      // Ears
+      ctx.fillStyle='rgba(90,85,80,1)';
+      ctx.fillRect(tx-3,ty-13,2,2);
+      ctx.fillRect(tx+2,ty-13,2,2);
+      ctx.fillStyle='rgba(130,110,100,1)';
+      ctx.fillRect(tx-2,ty-12,1,1);
+      ctx.fillRect(tx+2,ty-12,1,1);
+      // Eye mask
+      ctx.fillStyle='rgba(30,28,25,1)';
+      ctx.fillRect(tx-2,ty-9,4,1);
+      // Eyes (looking left, toward seeds)
+      ctx.fillStyle='rgba(180,160,60,0.95)';
+      ctx.fillRect(tx-2,ty-9,1,1);
+      ctx.fillRect(tx+1,ty-9,1,1);
+      // Nose
+      ctx.fillStyle='rgba(30,25,25,1)';
+      ctx.fillRect(tx,ty-7,1,1);
+      // Tail curled
+      const tailS = Math.sin(t*0.03)*1.5;
+      ctx.fillStyle='rgba(80,75,70,0.8)';
+      ctx.fillRect(tx+4,ty-3,1,1);
+      ctx.fillRect(tx+5,ty-4+tailS,1,1);
+      ctx.fillRect(tx+6,ty-5+tailS,1,1);
+      // Arm extended slightly (reaching toward a seed)
+      ctx.fillStyle='rgba(80,75,70,0.8)';
+      for(let i=0;i<4;i++){
+        ctx.fillRect(tx-4-i,ty-3-i*0.5,1,1);
+      }
+
+      // Soft glow where seeds originate
+      const glowA = 0.02+0.01*Math.sin(t*0.03);
+      ctx.fillStyle=`rgba(220,220,200,${glowA})`;
+      ctx.beginPath();
+      ctx.arc(HEAD_X,HEAD_Y,15,0,Math.PI*2);
+      ctx.fill();
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
   // ============ PIXEL ART: Day 71 - Fruit (Ripening and Consequence) ============
   (function(){
     const c = document.getElementById('pixel-day71');
