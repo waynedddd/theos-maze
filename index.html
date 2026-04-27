@@ -1759,622 +1759,207 @@
     const W=160, H=120;
     let t=0;
 
-    // Dandelion seeds floating in the wind — feathery pappus structures
-    // Theo stands below a dandelion head, blowing seeds into the air
-
-    const seeds = [];
-    for(let i=0;i<25;i++){
-      seeds.push({
-        x: 80+Math.random()*30-15,
-        y: 30+Math.random()*20-10,
-        vx: 0.1+Math.random()*0.4,
-        vy: -0.2-Math.random()*0.3,
-        drift: Math.random()*Math.PI*2,
-        driftSpeed: 0.01+Math.random()*0.02,
-        size: 2+Math.random()*2,
-        bristles: 5+Math.floor(Math.random()*4),
-        released: false,
-        releaseTime: 60+Math.floor(Math.random()*300),
-        alpha: 0
-      });
-    }
-
-    // Stem of dandelion
-    const STEM_X = 85, STEM_BASE_Y = 95, STEM_TOP_Y = 30;
-    const HEAD_X = 85, HEAD_Y = 28, HEAD_R = 12;
-
-    // Remaining seeds on head (decreases over time)
-    let seedsOnHead = 25;
-
-    function px(x,y,r,g,b,a){
-      if(a===undefined) a=1;
-      ctx.fillStyle=`rgba(${r|0},${g|0},${b|0},${a})`;
-      ctx.fillRect(x|0,y|0,1,1);
-    }
-
-    function drawBristle(cx,cy,angle,len,alpha){
-      for(let i=0;i<len;i++){
-        const bx = cx+Math.cos(angle)*i;
-        const by = cy+Math.sin(angle)*i;
-        const ba = alpha*(1-i/(len+2));
-        px(bx,by,240,240,235,ba);
-      }
-    }
-
-    function drawSeed(x,y,size,bristles,alpha,rotation){
-      // Central achene (tiny dark seed)
-      px(x,y,80,70,50,alpha);
-      px(x,y+1,80,70,50,alpha*0.8);
-      // Pappus bristles radiating outward
-      for(let i=0;i<bristles;i++){
-        const angle = rotation + (i/bristles)*Math.PI*2;
-        drawBristle(x,y,angle,size*2.5,alpha*0.7);
-      }
-      // Feathery tips
-      for(let i=0;i<bristles;i++){
-        const angle = rotation + (i/bristles)*Math.PI*2;
-        const tipX = x+Math.cos(angle)*size*2.5;
-        const tipY = y+Math.sin(angle)*size*2.5;
-        px(tipX,tipY,255,255,250,alpha*0.5);
-      }
-    }
-
-    function draw(){
-      t++;
-      ctx.clearRect(0,0,W,H);
-
-      // Sky — soft dawn gradient (pale blue to warm horizon)
-      for(let y=0;y<H;y++){
-        const f=y/H;
-        const r=Math.floor(25+f*20);
-        const g=Math.floor(30+f*15);
-        const b=Math.floor(55-f*15);
-        ctx.fillStyle=`rgb(${r},${g},${b})`;
-        ctx.fillRect(0,y,W,1);
-      }
-
-      // Gentle wind lines (barely visible)
-      for(let i=0;i<8;i++){
-        const wy = 20+i*12;
-        const wx = ((t*0.3+i*40)%200)-20;
-        for(let j=0;j<15;j++){
-          px(wx+j,wy+Math.sin((wx+j)*0.05+t*0.01)*1.5,200,210,220,0.06);
-        }
-      }
-
-      // Ground - soft earth
-      for(let x=0;x<W;x++){
-        const gh = H-14+Math.sin(x*0.06)*2;
-        for(let y2=Math.floor(gh);y2<H;y2++){
-          const gf=(y2-gh)/14;
-          px(x,y2,30+gf*10,40+gf*8,20+gf*5,0.9);
-        }
-      }
-
-      // Small grass tufts
-      for(let i=0;i<20;i++){
-        const gx=(i*17+5)%W;
-        const gy=H-14+Math.sin(gx*0.06)*2;
-        const sway=Math.sin(t*0.02+i)*1;
-        for(let h=0;h<4+i%3;h++){
-          px(gx+sway*(h/5),gy-h,50+i%20,100+i%30,35,0.5);
-        }
-      }
-
-      // Dandelion stem - gentle sway
-      const sway = Math.sin(t*0.015)*1.5;
-      for(let y=STEM_BASE_Y;y>=STEM_TOP_Y;y--){
-        const progress = (STEM_BASE_Y-y)/(STEM_BASE_Y-STEM_TOP_Y);
-        const sx = STEM_X + sway*progress*progress;
-        px(sx,y,60,90,40,0.85);
-        px(sx+1,y,50,80,35,0.5);
-      }
-
-      // Dandelion head (sphere of remaining seeds)
-      const headX = HEAD_X + sway;
-      const headY = HEAD_Y;
-      const remaining = Math.max(0, seedsOnHead - Math.floor(t/30));
-
-      // Glow around head
-      if(remaining > 0){
-        ctx.fillStyle=`rgba(255,255,240,${0.03+0.01*Math.sin(t*0.03)})`;
-        ctx.beginPath();
-        ctx.arc(headX,headY,HEAD_R+4,0,Math.PI*2);
-        ctx.fill();
-      }
-
-      // Static seeds still on head
-      for(let i=0;i<remaining;i++){
-        const angle = (i/25)*Math.PI*2 + i*0.5;
-        const r2 = HEAD_R*0.4*(0.5+0.5*(i%3)/3);
-        const sx = headX+Math.cos(angle)*r2;
-        const sy = headY+Math.sin(angle)*r2;
-        drawBristle(sx,sy,angle,4,0.5);
-        px(sx,sy,230,230,220,0.6);
-      }
-
-      // Released floating seeds
-      for(const s of seeds){
-        if(!s.released && t > s.releaseTime){
-          s.released = true;
-          s.x = headX;
-          s.y = headY;
-        }
-        if(!s.released) continue;
-
-        s.drift += s.driftSpeed;
-        s.x += s.vx + Math.sin(s.drift)*0.15;
-        s.y += s.vy + Math.cos(s.drift*0.7)*0.1;
-        s.alpha = Math.min(1, s.alpha+0.015);
-
-        // Wrap around
-        if(s.x > W+10 || s.y < -20){
-          s.x = -5;
-          s.y = 30+Math.random()*40;
-          s.alpha = 0;
-        }
-
-        const rot = t*0.005+s.drift;
-        drawSeed(s.x,s.y,s.size,s.bristles,s.alpha*0.85,rot);
-      }
-
-      // Theo at bottom-left, looking up, mouth open (blowing)
-      const tx=35, ty=104;
-      // Body
-      for(let dx=-3;dx<=3;dx++){
-        for(let dy=-5;dy<=0;dy++){
-          px(tx+dx,ty+dy,80,75,70,0.9);
-        }
-      }
-      // Head
-      for(let dx=-3;dx<=3;dx++){
-        for(let dy=-4;dy<=0;dy++){
-          if(dx*dx+dy*dy<=12)
-            px(tx+dx,ty-8+dy,90,85,80,0.95);
-        }
-      }
-      // Ears
-      px(tx-3,ty-13,90,85,80); px(tx-2,ty-13,90,85,80);
-      px(tx+2,ty-13,90,85,80); px(tx+3,ty-13,90,85,80);
-      px(tx-2,ty-12,130,110,100); px(tx+2,ty-12,130,110,100);
-      // Eye mask
-      px(tx-2,ty-9,30,28,25); px(tx-1,ty-9,30,28,25);
-      px(tx+1,ty-9,30,28,25); px(tx+2,ty-9,30,28,25);
-      // Eyes (looking up and to the right, watching seeds go)
-      px(tx-1,ty-10,180,160,60,0.95);
-      px(tx+2,ty-10,180,160,60,0.95);
-      // Nose
-      px(tx,ty-7,30,25,25);
-      // Mouth slightly open (blowing)
-      px(tx,ty-6,50,35,35,0.7);
-      px(tx+1,ty-6,50,35,35,0.5);
-      // Tail swaying gently
-      const tailSway = Math.sin(t*0.04)*2;
-      px(tx-4,ty-2,80,75,70); px(tx-5,ty-3+tailSway,80,75,70);
-      px(tx-6,ty-4+tailSway,90,85,80);
-      // One arm raised, releasing something
-      for(let i=0;i<4;i++){
-        px(tx+4+i,ty-4-i*0.5,80,75,70,0.8);
-      }
-
-      // A few extra tiny particles in the wind (pollen/dust)
-      for(let i=0;i<6;i++){
-        const px2 = ((t*0.5+i*30)%180)-10;
-        const py2 = 40+i*8+Math.sin(t*0.02+i*1.5)*4;
-        const pa = 0.15+0.1*Math.sin(t*0.03+i);
-        ctx.fillStyle=`rgba(255,250,230,${pa})`;
-        ctx.fillRect(px2,py2,1,1);
-      }
-
-      requestAnimationFrame(draw);
-    }
-    draw();
-  })();
-  // ============ PIXEL ART: Day 72 - Dispersal (Scattering Seeds on Wind) ============
-  (function(){
-    const c = document.getElementById('pixel-day72');
-    if(!c) return;
-    const ctx = c.getContext('2d');
-    const W=160, H=120;
-    let t=0;
-
-    // Dandelion seeds floating on wind
+    // Dandelion seeds floating in wind — each is a tiny star-burst with a seed below
     const seeds = [];
     for(let i=0;i<18;i++){
       seeds.push({
-        x: 60+Math.random()*30,
-        y: 30+Math.random()*40,
-        vx: 0.2+Math.random()*0.4,
-        vy: -0.3+Math.random()*0.6,
+        x: 80+Math.random()*40-20,
+        y: 30+Math.random()*60,
+        vx: 0.15+Math.random()*0.3,
+        vy: -0.05+(Math.random()-0.5)*0.15,
         phase: Math.random()*Math.PI*2,
-        size: 1.5+Math.random()*1.5,
-        bristles: 3+Math.floor(Math.random()*4),
-        drift: Math.random()*0.02+0.01,
-        born: -Math.random()*300
+        size: 2+Math.random()*2.5,
+        bobSpeed: 0.01+Math.random()*0.015,
+        bobAmp: 0.3+Math.random()*0.5,
+        alpha: 0.5+Math.random()*0.5,
+        released: i < 6 // first batch already flying
       });
     }
 
-    // Dandelion head (source) - partially blown
-    const HEAD_X = 55, HEAD_Y = 60;
+    // Dandelion head (partially emptied, on a stem)
+    const STEM_X = 35, STEM_BOTTOM = 110, STEM_TOP = 38;
+    const HEAD_CX = 35, HEAD_CY = 32, HEAD_R = 14;
 
-    // Wind particles (subtle streaks)
-    const winds = [];
-    for(let i=0;i<25;i++){
-      winds.push({
-        x: Math.random()*W,
-        y: Math.random()*H,
-        len: 5+Math.random()*12,
-        speed: 0.5+Math.random()*1,
-        phase: Math.random()*Math.PI*2
-      });
+    // Remaining bristles on head (diminish over time)
+    const bristles = [];
+    for(let i=0;i<20;i++){
+      const angle = (i/20)*Math.PI*2 + Math.random()*0.2;
+      bristles.push({ angle, len: 8+Math.random()*5, gone: false, goTime: 200+i*80+Math.random()*100 });
     }
 
-    function draw(){
-      t++;
-      ctx.clearRect(0,0,W,H);
-
-      // Sky gradient - soft twilight blue
-      for(let y=0;y<H;y++){
-        const f=y/H;
-        const r=Math.floor(15+f*15), g=Math.floor(18+f*12), b=Math.floor(40-f*10);
-        ctx.fillStyle=`rgb(${r},${g},${b})`;
-        ctx.fillRect(0,y,W,1);
-      }
-
-      // Distant hills
-      for(let x=0;x<W;x++){
-        const hillH = H-20 + Math.sin(x*0.02)*8 + Math.sin(x*0.05+2)*4;
-        ctx.fillStyle='rgba(20,30,18,0.6)';
-        ctx.fillRect(x,hillH,1,H-hillH);
-      }
-
-      // Ground
-      for(let x=0;x<W;x++){
-        const gh = H-12 + Math.sin(x*0.1)*2;
-        for(let y2=Math.floor(gh);y2<H;y2++){
-          const gf=(y2-gh)/14;
-          ctx.fillStyle=`rgba(${30+gf*10|0},${40+gf*8|0},${20+gf*5|0},0.9)`;
-          ctx.fillRect(x,y2,1,1);
-        }
-      }
-
-      // Dandelion stem
-      ctx.strokeStyle='rgba(60,80,40,0.8)';
-      ctx.lineWidth=1.5;
-      ctx.beginPath();
-      const stemSway = Math.sin(t*0.02)*1.5;
-      ctx.moveTo(HEAD_X+stemSway*0.3, H-12);
-      ctx.quadraticCurveTo(HEAD_X+stemSway*0.6, HEAD_Y+20, HEAD_X+stemSway, HEAD_Y);
-      ctx.stroke();
-
-      // Dandelion head (partially gone - just a few bristles remaining)
-      const remaining = Math.max(3, 8 - Math.floor(t/200)%6);
-      for(let i=0;i<remaining;i++){
-        const angle = (i/remaining)*Math.PI*2 + t*0.001;
-        const bx = HEAD_X+stemSway + Math.cos(angle)*3;
-        const by = HEAD_Y + Math.sin(angle)*3;
-        ctx.strokeStyle='rgba(200,200,180,0.5)';
-        ctx.lineWidth=0.5;
-        ctx.beginPath();
-        ctx.moveTo(HEAD_X+stemSway, HEAD_Y);
-        ctx.lineTo(bx, by);
-        ctx.stroke();
-        // Tiny pappus at tip
-        ctx.fillStyle='rgba(220,220,200,0.4)';
-        ctx.beginPath();
-        ctx.arc(bx,by,1.2,0,Math.PI*2);
-        ctx.fill();
-      }
-      // Center receptacle
-      ctx.fillStyle='rgba(180,170,140,0.7)';
-      ctx.beginPath();
-      ctx.arc(HEAD_X+stemSway, HEAD_Y, 2.5, 0, Math.PI*2);
-      ctx.fill();
-
-      // Wind streaks
-      for(const w of winds){
-        w.x += w.speed;
-        const wy = w.y + Math.sin(t*0.01+w.phase)*0.3;
-        if(w.x > W+w.len) w.x = -w.len;
-        const wa = 0.06 + 0.03*Math.sin(t*0.02+w.phase);
-        ctx.strokeStyle=`rgba(180,200,220,${wa})`;
-        ctx.lineWidth=0.5;
-        ctx.beginPath();
-        ctx.moveTo(w.x, wy);
-        ctx.lineTo(w.x+w.len, wy+Math.sin(w.phase)*1);
-        ctx.stroke();
-      }
-
-      // Floating seeds (dandelion achenes with pappus)
-      for(const s of seeds){
-        if(t < s.born) continue;
-        const age = t - s.born;
-
-        // Gentle physics
-        s.x += s.vx + Math.sin(t*s.drift+s.phase)*0.3;
-        s.vy += Math.sin(t*0.008+s.phase)*0.005; // turbulence
-        s.y += s.vy + Math.sin(t*0.015+s.phase*2)*0.2;
-
-        // Reset if off screen
-        if(s.x > W+10 || s.y < -20 || s.y > H+10){
-          s.x = HEAD_X + (Math.random()-0.5)*10;
-          s.y = HEAD_Y + (Math.random()-0.5)*8;
-          s.vx = 0.2+Math.random()*0.4;
-          s.vy = -0.3+Math.random()*0.5;
-          s.born = t;
-        }
-
-        // Draw seed body (tiny dark achene)
-        ctx.fillStyle='rgba(80,70,50,0.8)';
-        ctx.fillRect(s.x-0.5, s.y, 1, 2);
-
-        // Draw pappus (feathery top) - radiating lines
-        const rot = Math.sin(t*0.01+s.phase)*0.3;
-        for(let b=0;b<s.bristles;b++){
-          const bAngle = -Math.PI/2 + (b/(s.bristles-1)-0.5)*Math.PI*0.8 + rot;
-          const bLen = s.size*2.5;
-          const bx2 = s.x + Math.cos(bAngle)*bLen;
-          const by2 = s.y + Math.sin(bAngle)*bLen;
-          ctx.strokeStyle='rgba(220,215,200,0.6)';
-          ctx.lineWidth=0.4;
-          ctx.beginPath();
-          ctx.moveTo(s.x, s.y);
-          ctx.lineTo(bx2, by2);
-          ctx.stroke();
-          // Tiny barbs
-          ctx.fillStyle='rgba(240,235,220,0.4)';
-          ctx.beginPath();
-          ctx.arc(bx2, by2, 0.7, 0, Math.PI*2);
-          ctx.fill();
-        }
-      }
-
-      // Theo sitting on ground, watching seeds float away
-      const tx=125, ty=104;
-      // Body
-      ctx.fillStyle='rgba(80,75,70,0.9)';
-      ctx.fillRect(tx-3,ty-5,7,6);
-      // Head
-      for(let dx=-3;dx<=3;dx++){
-        for(let dy=-4;dy<=0;dy++){
-          if(dx*dx+dy*dy<=12){
-            ctx.fillStyle='rgba(90,85,80,0.95)';
-            ctx.fillRect(tx+dx,ty-8+dy,1,1);
-          }
-        }
-      }
-      // Ears
-      ctx.fillStyle='rgba(90,85,80,1)';
-      ctx.fillRect(tx-3,ty-13,2,2);
-      ctx.fillRect(tx+2,ty-13,2,2);
-      ctx.fillStyle='rgba(130,110,100,1)';
-      ctx.fillRect(tx-2,ty-12,1,1);
-      ctx.fillRect(tx+2,ty-12,1,1);
-      // Eye mask
-      ctx.fillStyle='rgba(30,28,25,1)';
-      ctx.fillRect(tx-2,ty-9,4,1);
-      // Eyes (looking left, toward seeds)
-      ctx.fillStyle='rgba(180,160,60,0.95)';
-      ctx.fillRect(tx-2,ty-9,1,1);
-      ctx.fillRect(tx+1,ty-9,1,1);
-      // Nose
-      ctx.fillStyle='rgba(30,25,25,1)';
-      ctx.fillRect(tx,ty-7,1,1);
-      // Tail curled
-      const tailS = Math.sin(t*0.03)*1.5;
-      ctx.fillStyle='rgba(80,75,70,0.8)';
-      ctx.fillRect(tx+4,ty-3,1,1);
-      ctx.fillRect(tx+5,ty-4+tailS,1,1);
-      ctx.fillRect(tx+6,ty-5+tailS,1,1);
-      // Arm extended slightly (reaching toward a seed)
-      ctx.fillStyle='rgba(80,75,70,0.8)';
-      for(let i=0;i<4;i++){
-        ctx.fillRect(tx-4-i,ty-3-i*0.5,1,1);
-      }
-
-      // Soft glow where seeds originate
-      const glowA = 0.02+0.01*Math.sin(t*0.03);
-      ctx.fillStyle=`rgba(220,220,200,${glowA})`;
-      ctx.beginPath();
-      ctx.arc(HEAD_X,HEAD_Y,15,0,Math.PI*2);
-      ctx.fill();
-
-      requestAnimationFrame(draw);
-    }
-    draw();
-  })();
-  // ============ PIXEL ART: Day 72 - Dispersal (Scattering and Departure) ============
-  (function(){
-    const c = document.getElementById('pixel-day72');
-    if(!c) return;
-    const ctx = c.getContext('2d');
-    const W=160, H=120;
-    let t=0;
-
-    // Dandelion seeds floating in wind — each is a tiny star-burst with a seed beneath
-    const seeds = [];
-    for(let i=0;i<12;i++){
-      seeds.push({
-        x: 80+Math.random()*30-15,
-        y: 40+Math.random()*20-10,
-        vx: 0.15+Math.random()*0.25,
-        vy: -0.3-Math.random()*0.2,
-        drift: Math.random()*Math.PI*2,
-        size: 2+Math.random()*2,
-        bristles: 5+Math.floor(Math.random()*4),
-        released: false,
-        releaseT: 30+i*25+Math.random()*20,
-        alpha: 0
-      });
-    }
-
-    // The dandelion head (source)
-    const STEM_X=50, STEM_BASE=110, STEM_TOP=45;
-    let headSeeds = 20; // visual seeds remaining on head
-
-    // Theo sitting nearby watching
-    const TX=120, TY=105;
+    let releaseIdx = 6;
 
     function px(x,y,r,g,b,a){
       if(a===undefined)a=1;
       ctx.fillStyle=`rgba(${r|0},${g|0},${b|0},${a})`;
       ctx.fillRect(x|0,y|0,1,1);
     }
-    function lerp(a,b,t2){return a+(b-a)*t2;}
 
     function drawSeed(s){
-      if(s.alpha<=0) return;
-      const a = s.alpha;
-      // Pappus (bristle star)
-      for(let i=0;i<s.bristles;i++){
-        const angle = (i/s.bristles)*Math.PI*2 + Math.sin(t*0.008+s.drift)*0.3;
-        const len = s.size*1.8;
-        for(let d=0;d<len;d++){
-          const bx = s.x+Math.cos(angle)*d;
-          const by = s.y+Math.sin(angle)*d;
-          const ba = a*(1-d/len)*0.7;
-          px(bx,by,240,240,235,ba);
-        }
-        // Tiny feather tips
-        const tipX=s.x+Math.cos(angle)*len;
-        const tipY=s.y+Math.sin(angle)*len;
-        px(tipX,tipY,255,255,250,a*0.5);
+      // Pappus (feathery top)
+      const numRays = 8;
+      for(let i=0;i<numRays;i++){
+        const a = (i/numRays)*Math.PI*2 + Math.sin(t*0.008+s.phase)*0.3;
+        const len = s.size;
+        const ex = s.x + Math.cos(a)*len;
+        const ey = s.y + Math.sin(a)*len;
+        ctx.strokeStyle=`rgba(230,225,215,${s.alpha*0.7})`;
+        ctx.lineWidth=0.5;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        // tiny dot at tip
+        px(ex,ey,240,235,220,s.alpha*0.5);
       }
-      // Seed body (tiny dark oval below pappus)
-      px(s.x,s.y+s.size*0.5,80,70,50,a*0.9);
-      px(s.x,s.y+s.size*0.5+1,60,50,35,a*0.7);
+      // Seed body (tiny dark oval below center)
+      px(s.x, s.y+1, 80,70,50, s.alpha);
+      px(s.x, s.y+2, 60,50,35, s.alpha*0.8);
     }
 
     function draw(){
       t++;
       ctx.clearRect(0,0,W,H);
 
-      // Sky — soft dawn gradient with hint of wind
+      // Sky — soft twilight gradient
       for(let y=0;y<H;y++){
         const f=y/H;
-        const r=lerp(25,45,f), g=lerp(30,40,f), b=lerp(60,35,f);
+        const r=15+f*15, g=18+f*10, b=40-f*10;
         ctx.fillStyle=`rgb(${r|0},${g|0},${b|0})`;
         ctx.fillRect(0,y,W,1);
       }
 
-      // Subtle wind lines
-      for(let i=0;i<8;i++){
-        const wy = 20+i*12;
-        const wx = ((t*0.4+i*50)%200)-20;
-        const wa = 0.06+0.03*Math.sin(t*0.01+i);
-        for(let d=0;d<15+i*3;d++){
-          px(wx+d,wy+Math.sin((wx+d)*0.05+t*0.01)*1.5,200,210,220,wa*(1-d/(15+i*3)));
-        }
-      }
-
-      // Ground
-      for(let x=0;x<W;x++){
-        const gh=H-12+Math.sin(x*0.06)*2;
-        for(let y=gh;y<H;y++){
-          const gf=(y-gh)/14;
-          px(x,y,30+gf*10,45+gf*8,20+gf*5,0.9);
-        }
+      // Faint wind lines
+      for(let i=0;i<6;i++){
+        const wy = 20+i*15+Math.sin(t*0.005+i)*5;
+        const wx = (t*0.3+i*40)%200 - 30;
+        ctx.strokeStyle=`rgba(180,175,165,0.06)`;
+        ctx.lineWidth=1;
+        ctx.beginPath();
+        ctx.moveTo(wx,wy);
+        ctx.lineTo(wx+25+Math.sin(i)*10,wy+Math.sin(t*0.01+i)*2);
+        ctx.stroke();
       }
 
       // Stem
-      const stemSway = Math.sin(t*0.015)*1.5;
-      for(let i=0;i<STEM_BASE-STEM_TOP;i++){
-        const f=i/(STEM_BASE-STEM_TOP);
-        const sx=STEM_X+stemSway*f*f;
-        const sy=STEM_BASE-i;
-        px(sx,sy,60,90,40,0.85);
-        px(sx+1,sy,50,75,35,0.5);
+      for(let y=STEM_TOP;y<=STEM_BOTTOM;y++){
+        const sway = Math.sin(t*0.015+y*0.02)*1.5;
+        const green = 0.7+0.3*((STEM_BOTTOM-y)/(STEM_BOTTOM-STEM_TOP));
+        px(STEM_X+sway, y, 50*green+30, 90*green+20, 30*green+15, 0.85);
       }
 
-      // Dandelion head (sphere of remaining seeds)
-      const headX=STEM_X+stemSway;
-      const headY=STEM_TOP;
-      const remainRatio = Math.max(0,1-t*0.0008);
-      headSeeds = Math.floor(20*remainRatio);
-      // Draw puff ball
-      for(let i=0;i<headSeeds;i++){
-        const angle=(i/20)*Math.PI*2+t*0.002;
-        const r=5+Math.sin(i*1.7)*1.5;
-        const bx=headX+Math.cos(angle)*r;
-        const by=headY+Math.sin(angle)*r*0.7;
-        for(let b2=0;b2<3;b2++){
-          const ba=angle+b2*2.1;
-          px(bx+Math.cos(ba)*2,by+Math.sin(ba)*2,230,230,220,0.4);
-        }
-        px(bx,by,240,240,235,0.6);
-      }
-      // Head center
-      ctx.fillStyle='rgba(120,110,80,0.7)';
+      // Dandelion head — remaining bristles
+      ctx.fillStyle='rgba(220,215,200,0.3)';
       ctx.beginPath();
-      ctx.arc(headX,headY,3,0,Math.PI*2);
+      ctx.arc(HEAD_CX, HEAD_CY, 5, 0, Math.PI*2);
       ctx.fill();
 
-      // Release and animate seeds
-      for(const s of seeds){
-        if(!s.released && t>s.releaseT){
-          s.released=true;
-          s.x=headX;
-          s.y=headY;
-          s.alpha=1;
-        }
-        if(s.released){
-          s.alpha=Math.min(1,s.alpha+0.02);
-          s.x+=s.vx+Math.sin(t*0.012+s.drift)*0.15;
-          s.y+=s.vy+Math.cos(t*0.008+s.drift)*0.1;
-          s.vy+=0.002; // very slight gravity
-          // Reset if off screen
-          if(s.x>W+10||s.y<-20||s.y>H+10){
-            s.x=headX;
-            s.y=headY;
-            s.alpha=0;
-            s.released=false;
-            s.releaseT=t+60+Math.random()*80;
+      for(const b of bristles){
+        if(b.gone) continue;
+        if(t > b.goTime){
+          b.gone = true;
+          // release a seed
+          if(releaseIdx < seeds.length){
+            seeds[releaseIdx].released = true;
+            seeds[releaseIdx].x = HEAD_CX + Math.cos(b.angle)*6;
+            seeds[releaseIdx].y = HEAD_CY + Math.sin(b.angle)*6;
+            releaseIdx++;
           }
-          drawSeed(s);
+          continue;
+        }
+        const bx = HEAD_CX + Math.cos(b.angle)*b.len;
+        const by = HEAD_CY + Math.sin(b.angle)*b.len;
+        ctx.strokeStyle='rgba(230,225,210,0.5)';
+        ctx.lineWidth=0.5;
+        ctx.beginPath();
+        ctx.moveTo(HEAD_CX+Math.cos(b.angle)*4, HEAD_CY+Math.sin(b.angle)*4);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        px(bx,by,240,235,220,0.6);
+      }
+
+      // Flying seeds
+      for(const s of seeds){
+        if(!s.released) continue;
+        s.x += s.vx + Math.sin(t*0.007+s.phase)*0.1;
+        s.y += s.vy + Math.sin(t*s.bobSpeed+s.phase)*s.bobAmp*0.1;
+        // Gentle upward drift occasionally
+        s.vy += (Math.random()-0.52)*0.002;
+        // Wrap around
+        if(s.x > W+10){ s.x = -10; s.y = 20+Math.random()*50; }
+        if(s.y < -10){ s.y = -10; s.vy = 0.02; }
+        if(s.y > H+10){ s.y = H+10; s.vy = -0.05; }
+        drawSeed(s);
+      }
+
+      // Ground — soft grassy
+      for(let x=0;x<W;x++){
+        const gh = H-12+Math.sin(x*0.1)*2+Math.sin(x*0.23)*1;
+        for(let y2=gh;y2<H;y2++){
+          const gf=(y2-gh)/14;
+          px(x,y2, 20+gf*10, 35+gf*5-Math.sin(x*0.3)*3, 12+gf*3, 0.9);
+        }
+        // Grass blades
+        if(x%3===0){
+          const bladeH = 4+Math.sin(x*0.7)*2;
+          const sway2 = Math.sin(t*0.02+x*0.1)*1.5;
+          for(let b2=0;b2<bladeH;b2++){
+            px(x+sway2*(b2/bladeH), gh-b2, 40,80,25, 0.6-b2*0.05);
+          }
         }
       }
 
-      // Theo sitting, knees up, watching seeds drift
-      // Body (seated)
+      // Theo sitting on the ground, watching seeds float away
+      const tx=120, ty=102;
+      // Body (sitting)
       for(let dx=-3;dx<=3;dx++){
         for(let dy=-3;dy<=2;dy++){
-          px(TX+dx,TY+dy,80,75,70,0.9);
+          px(tx+dx,ty+dy,80,75,70,0.9);
         }
       }
-      // Legs (knees up)
-      for(let i=0;i<4;i++){
-        px(TX-2+i,TY+3,75,70,65,0.85);
-        px(TX-2+i,TY+4,75,70,65,0.8);
+      // Legs (extended, sitting)
+      for(let i=0;i<6;i++){
+        px(tx-2+i*0.5,ty+3,70,65,60,0.8);
+        px(tx-2+i*0.5,ty+4,70,65,60,0.7);
       }
       // Head
       for(let dx=-3;dx<=3;dx++){
         for(let dy=-4;dy<=0;dy++){
           if(dx*dx+dy*dy<=12)
-            px(TX+dx,TY-6+dy,90,85,80,0.95);
+            px(tx+dx,ty-6+dy,90,85,80,0.95);
         }
       }
       // Ears
-      px(TX-3,TY-11,90,85,80); px(TX-2,TY-11,90,85,80);
-      px(TX+2,TY-11,90,85,80); px(TX+3,TY-11,90,85,80);
-      px(TX-2,TY-10,130,110,100); px(TX+2,TY-10,130,110,100);
+      px(tx-3,ty-11,90,85,80); px(tx-2,ty-11,90,85,80);
+      px(tx+2,ty-11,90,85,80); px(tx+3,ty-11,90,85,80);
+      px(tx-2,ty-10,130,110,100); px(tx+2,ty-10,130,110,100);
       // Eye mask
-      px(TX-2,TY-7,30,28,25); px(TX-1,TY-7,30,28,25);
-      px(TX+1,TY-7,30,28,25); px(TX+2,TY-7,30,28,25);
-      // Eyes (looking left at seeds)
-      px(TX-2,TY-7,180,160,60,0.95);
-      px(TX+1,TY-7,180,160,60,0.95);
+      px(tx-2,ty-7,30,28,25); px(tx-1,ty-7,30,28,25);
+      px(tx+1,ty-7,30,28,25); px(tx+2,ty-7,30,28,25);
+      // Eyes (looking left at the floating seeds, contemplative)
+      px(tx-2,ty-7,180,160,60,0.9);
+      px(tx+1,ty-7,180,160,60,0.9);
       // Nose
-      px(TX,TY-5,30,25,25);
-      // Tail curled behind
-      const tailS=Math.sin(t*0.03)*1.5;
-      px(TX+4,TY,80,75,70); px(TX+5,TY-1+tailS,80,75,70);
-      px(TX+6,TY-2+tailS,90,85,80); px(TX+7,TY-2+tailS,100,95,85);
+      px(tx,ty-5,30,25,25);
+      // Tail curled beside
+      const tailSway2 = Math.sin(t*0.03)*1;
+      px(tx+4,ty+1,80,75,70); px(tx+5,ty+tailSway2,90,85,80);
+      px(tx+6,ty-1+tailSway2,100,90,85);
 
-      // One seed landed near Theo (already grounded)
-      px(TX-8,TY+4,60,50,35,0.7);
-      px(TX-8,TY+3,230,230,220,0.3);
-      px(TX-9,TY+2,230,230,220,0.2);
-      px(TX-7,TY+2,230,230,220,0.2);
+      // One seed near Theo (he just let it go)
+      const nearSeed = seeds[0];
+      if(nearSeed && nearSeed.released && nearSeed.x < tx-5){
+        // A faint trail from Theo's paw to seed's original position
+        const trailA = Math.max(0, 0.1 - t*0.0002);
+        if(trailA > 0){
+          ctx.strokeStyle=`rgba(200,195,180,${trailA})`;
+          ctx.lineWidth=0.5;
+          ctx.beginPath();
+          ctx.moveTo(tx-3,ty-1);
+          ctx.lineTo(tx-10,ty-5);
+          ctx.stroke();
+        }
+      }
 
       requestAnimationFrame(draw);
     }
