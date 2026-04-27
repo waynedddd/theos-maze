@@ -2183,6 +2183,203 @@
     }
     draw();
   })();
+  // ============ PIXEL ART: Day 72 - Dispersal (Scattering and Departure) ============
+  (function(){
+    const c = document.getElementById('pixel-day72');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0;
+
+    // Dandelion seeds floating in wind — each is a tiny star-burst with a seed beneath
+    const seeds = [];
+    for(let i=0;i<12;i++){
+      seeds.push({
+        x: 80+Math.random()*30-15,
+        y: 40+Math.random()*20-10,
+        vx: 0.15+Math.random()*0.25,
+        vy: -0.3-Math.random()*0.2,
+        drift: Math.random()*Math.PI*2,
+        size: 2+Math.random()*2,
+        bristles: 5+Math.floor(Math.random()*4),
+        released: false,
+        releaseT: 30+i*25+Math.random()*20,
+        alpha: 0
+      });
+    }
+
+    // The dandelion head (source)
+    const STEM_X=50, STEM_BASE=110, STEM_TOP=45;
+    let headSeeds = 20; // visual seeds remaining on head
+
+    // Theo sitting nearby watching
+    const TX=120, TY=105;
+
+    function px(x,y,r,g,b,a){
+      if(a===undefined)a=1;
+      ctx.fillStyle=`rgba(${r|0},${g|0},${b|0},${a})`;
+      ctx.fillRect(x|0,y|0,1,1);
+    }
+    function lerp(a,b,t2){return a+(b-a)*t2;}
+
+    function drawSeed(s){
+      if(s.alpha<=0) return;
+      const a = s.alpha;
+      // Pappus (bristle star)
+      for(let i=0;i<s.bristles;i++){
+        const angle = (i/s.bristles)*Math.PI*2 + Math.sin(t*0.008+s.drift)*0.3;
+        const len = s.size*1.8;
+        for(let d=0;d<len;d++){
+          const bx = s.x+Math.cos(angle)*d;
+          const by = s.y+Math.sin(angle)*d;
+          const ba = a*(1-d/len)*0.7;
+          px(bx,by,240,240,235,ba);
+        }
+        // Tiny feather tips
+        const tipX=s.x+Math.cos(angle)*len;
+        const tipY=s.y+Math.sin(angle)*len;
+        px(tipX,tipY,255,255,250,a*0.5);
+      }
+      // Seed body (tiny dark oval below pappus)
+      px(s.x,s.y+s.size*0.5,80,70,50,a*0.9);
+      px(s.x,s.y+s.size*0.5+1,60,50,35,a*0.7);
+    }
+
+    function draw(){
+      t++;
+      ctx.clearRect(0,0,W,H);
+
+      // Sky — soft dawn gradient with hint of wind
+      for(let y=0;y<H;y++){
+        const f=y/H;
+        const r=lerp(25,45,f), g=lerp(30,40,f), b=lerp(60,35,f);
+        ctx.fillStyle=`rgb(${r|0},${g|0},${b|0})`;
+        ctx.fillRect(0,y,W,1);
+      }
+
+      // Subtle wind lines
+      for(let i=0;i<8;i++){
+        const wy = 20+i*12;
+        const wx = ((t*0.4+i*50)%200)-20;
+        const wa = 0.06+0.03*Math.sin(t*0.01+i);
+        for(let d=0;d<15+i*3;d++){
+          px(wx+d,wy+Math.sin((wx+d)*0.05+t*0.01)*1.5,200,210,220,wa*(1-d/(15+i*3)));
+        }
+      }
+
+      // Ground
+      for(let x=0;x<W;x++){
+        const gh=H-12+Math.sin(x*0.06)*2;
+        for(let y=gh;y<H;y++){
+          const gf=(y-gh)/14;
+          px(x,y,30+gf*10,45+gf*8,20+gf*5,0.9);
+        }
+      }
+
+      // Stem
+      const stemSway = Math.sin(t*0.015)*1.5;
+      for(let i=0;i<STEM_BASE-STEM_TOP;i++){
+        const f=i/(STEM_BASE-STEM_TOP);
+        const sx=STEM_X+stemSway*f*f;
+        const sy=STEM_BASE-i;
+        px(sx,sy,60,90,40,0.85);
+        px(sx+1,sy,50,75,35,0.5);
+      }
+
+      // Dandelion head (sphere of remaining seeds)
+      const headX=STEM_X+stemSway;
+      const headY=STEM_TOP;
+      const remainRatio = Math.max(0,1-t*0.0008);
+      headSeeds = Math.floor(20*remainRatio);
+      // Draw puff ball
+      for(let i=0;i<headSeeds;i++){
+        const angle=(i/20)*Math.PI*2+t*0.002;
+        const r=5+Math.sin(i*1.7)*1.5;
+        const bx=headX+Math.cos(angle)*r;
+        const by=headY+Math.sin(angle)*r*0.7;
+        for(let b2=0;b2<3;b2++){
+          const ba=angle+b2*2.1;
+          px(bx+Math.cos(ba)*2,by+Math.sin(ba)*2,230,230,220,0.4);
+        }
+        px(bx,by,240,240,235,0.6);
+      }
+      // Head center
+      ctx.fillStyle='rgba(120,110,80,0.7)';
+      ctx.beginPath();
+      ctx.arc(headX,headY,3,0,Math.PI*2);
+      ctx.fill();
+
+      // Release and animate seeds
+      for(const s of seeds){
+        if(!s.released && t>s.releaseT){
+          s.released=true;
+          s.x=headX;
+          s.y=headY;
+          s.alpha=1;
+        }
+        if(s.released){
+          s.alpha=Math.min(1,s.alpha+0.02);
+          s.x+=s.vx+Math.sin(t*0.012+s.drift)*0.15;
+          s.y+=s.vy+Math.cos(t*0.008+s.drift)*0.1;
+          s.vy+=0.002; // very slight gravity
+          // Reset if off screen
+          if(s.x>W+10||s.y<-20||s.y>H+10){
+            s.x=headX;
+            s.y=headY;
+            s.alpha=0;
+            s.released=false;
+            s.releaseT=t+60+Math.random()*80;
+          }
+          drawSeed(s);
+        }
+      }
+
+      // Theo sitting, knees up, watching seeds drift
+      // Body (seated)
+      for(let dx=-3;dx<=3;dx++){
+        for(let dy=-3;dy<=2;dy++){
+          px(TX+dx,TY+dy,80,75,70,0.9);
+        }
+      }
+      // Legs (knees up)
+      for(let i=0;i<4;i++){
+        px(TX-2+i,TY+3,75,70,65,0.85);
+        px(TX-2+i,TY+4,75,70,65,0.8);
+      }
+      // Head
+      for(let dx=-3;dx<=3;dx++){
+        for(let dy=-4;dy<=0;dy++){
+          if(dx*dx+dy*dy<=12)
+            px(TX+dx,TY-6+dy,90,85,80,0.95);
+        }
+      }
+      // Ears
+      px(TX-3,TY-11,90,85,80); px(TX-2,TY-11,90,85,80);
+      px(TX+2,TY-11,90,85,80); px(TX+3,TY-11,90,85,80);
+      px(TX-2,TY-10,130,110,100); px(TX+2,TY-10,130,110,100);
+      // Eye mask
+      px(TX-2,TY-7,30,28,25); px(TX-1,TY-7,30,28,25);
+      px(TX+1,TY-7,30,28,25); px(TX+2,TY-7,30,28,25);
+      // Eyes (looking left at seeds)
+      px(TX-2,TY-7,180,160,60,0.95);
+      px(TX+1,TY-7,180,160,60,0.95);
+      // Nose
+      px(TX,TY-5,30,25,25);
+      // Tail curled behind
+      const tailS=Math.sin(t*0.03)*1.5;
+      px(TX+4,TY,80,75,70); px(TX+5,TY-1+tailS,80,75,70);
+      px(TX+6,TY-2+tailS,90,85,80); px(TX+7,TY-2+tailS,100,95,85);
+
+      // One seed landed near Theo (already grounded)
+      px(TX-8,TY+4,60,50,35,0.7);
+      px(TX-8,TY+3,230,230,220,0.3);
+      px(TX-9,TY+2,230,230,220,0.2);
+      px(TX-7,TY+2,230,230,220,0.2);
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
   // ============ PIXEL ART: Day 71 - Fruit (Ripening and Consequence) ============
   (function(){
     const c = document.getElementById('pixel-day71');
