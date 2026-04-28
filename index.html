@@ -1947,6 +1947,224 @@
     }
     draw();
   })();
+  // ============ PIXEL ART: Day 73 - Dormancy (Waiting and Stillness) ============
+  (function(){
+    const c = document.getElementById('pixel-day73');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0;
+
+    // Snow particles
+    const snow = [];
+    for(let i=0;i<40;i++){
+      snow.push({
+        x: Math.random()*W,
+        y: Math.random()*H*0.6,
+        speed: 0.2+Math.random()*0.3,
+        drift: Math.random()*Math.PI*2,
+        size: Math.random()<0.3?2:1,
+        alpha: 0.3+Math.random()*0.5
+      });
+    }
+
+    // Seed position (buried underground)
+    const SEED_X = 80, SEED_Y = 88;
+
+    function px(x,y,r,g,b,a){
+      if(a===undefined)a=1;
+      ctx.fillStyle=`rgba(${r|0},${g|0},${b|0},${a})`;
+      ctx.fillRect(x|0,y|0,1,1);
+    }
+
+    function draw(){
+      t++;
+      ctx.clearRect(0,0,W,H);
+
+      // Sky — cold winter night
+      for(let y=0;y<60;y++){
+        const f=y/60;
+        const r=8+f*5, g=10+f*8, b=25+f*10;
+        ctx.fillStyle=`rgb(${r|0},${g|0},${b|0})`;
+        ctx.fillRect(0,y,W,1);
+      }
+
+      // Ground surface line
+      const GROUND_Y = 60;
+
+      // Earth layers below ground
+      for(let y=GROUND_Y;y<H;y++){
+        const depth = (y-GROUND_Y)/(H-GROUND_Y);
+        const r=25+depth*15, g=18+depth*8, b=10+depth*5;
+        for(let x=0;x<W;x++){
+          const noise = Math.sin(x*0.3+y*0.5)*3+Math.sin(x*0.7-y*0.3)*2;
+          px(x,y, r+noise, g+noise*0.5, b+noise*0.3, 0.95);
+        }
+      }
+
+      // Soil texture — tiny particles
+      for(let i=0;i<80;i++){
+        const sx = (i*37+t*0.01)%W;
+        const sy = GROUND_Y+5+(i*13)%(H-GROUND_Y-10);
+        const shade = 30+Math.sin(i*2.7)*10;
+        px(sx,sy,shade+10,shade,shade-5,0.4);
+      }
+
+      // Roots of other plants passing by (subtle)
+      for(let i=0;i<3;i++){
+        const ry = GROUND_Y+15+i*18;
+        const rx_start = i*50+10;
+        for(let j=0;j<20;j++){
+          const rx = rx_start+j*2+Math.sin(j*0.5+i)*2;
+          const ry2 = ry+Math.sin(j*0.3+i*2)*3;
+          px(rx,ry2, 50,35,20, 0.3);
+        }
+      }
+
+      // The seed — an oval with a pulsing inner glow
+      const pulse = Math.sin(t*0.02)*0.3+0.7; // slow pulse 0.4-1.0
+      const glowR = 6+pulse*3;
+
+      // Seed glow (warm light from within)
+      for(let dx=-8;dx<=8;dx++){
+        for(let dy=-5;dy<=5;dy++){
+          const dist = Math.sqrt(dx*dx*0.8+dy*dy*1.5);
+          if(dist < glowR){
+            const intensity = (1-dist/glowR)*0.15*pulse;
+            px(SEED_X+dx,SEED_Y+dy, 200,150,60, intensity);
+          }
+        }
+      }
+
+      // Seed body
+      for(let dx=-4;dx<=4;dx++){
+        for(let dy=-2;dy<=2;dy++){
+          const dist = (dx*dx/16)+(dy*dy/4);
+          if(dist<=1){
+            const shade = 60+dx*3+dy*2;
+            px(SEED_X+dx,SEED_Y+dy, shade+20,shade,shade-15, 0.95);
+          }
+        }
+      }
+      // Seed highlight
+      px(SEED_X-1,SEED_Y-1, 100,80,40, 0.5*pulse);
+      px(SEED_X,SEED_Y-1, 110,90,50, 0.4*pulse);
+
+      // Inner embryo hint (tiny bright spot)
+      px(SEED_X,SEED_Y, 180,140,50, 0.3+pulse*0.3);
+      px(SEED_X+1,SEED_Y, 160,120,40, 0.2+pulse*0.2);
+
+      // Snow falling above ground
+      for(const s of snow){
+        s.y += s.speed;
+        s.x += Math.sin(t*0.01+s.drift)*0.3;
+        if(s.y > GROUND_Y-2){
+          s.y = -2;
+          s.x = Math.random()*W;
+        }
+        if(s.x<0) s.x=W;
+        if(s.x>W) s.x=0;
+        px(s.x, s.y, 220,225,235, s.alpha);
+        if(s.size>1) px(s.x+1,s.y, 220,225,235, s.alpha*0.5);
+      }
+
+      // Snow accumulated on ground
+      for(let x=0;x<W;x++){
+        const snowH = 2+Math.sin(x*0.1)*1+Math.sin(x*0.3)*0.5;
+        for(let sy=0;sy<snowH;sy++){
+          px(x, GROUND_Y-sy, 200+sy*5,205+sy*5,215+sy*3, 0.7+sy*0.1);
+        }
+      }
+
+      // Bare tree silhouette in background
+      const TREE_X=30, TREE_BASE=GROUND_Y;
+      // Trunk
+      for(let y=TREE_BASE-25;y<=TREE_BASE;y++){
+        const w = 1+((TREE_BASE-y)<5?1:0);
+        for(let dx=-w;dx<=w;dx++){
+          px(TREE_X+dx,y, 35,28,20, 0.7);
+        }
+      }
+      // Branches (bare)
+      const branches = [[-8,-22,5],[-12,-18,4],[7,-20,5],[10,-15,4],[-5,-27,3],[4,-26,3]];
+      for(const [bx,by,len] of branches){
+        for(let i=0;i<len;i++){
+          const fx=i/len;
+          px(TREE_X+bx*fx, TREE_BASE+by+i*(-0.3)*Math.sign(by), 35,28,20, 0.5);
+        }
+      }
+
+      // Another bare tree
+      const T2X=135;
+      for(let y=TREE_BASE-18;y<=TREE_BASE;y++){
+        px(T2X,y,35,28,20,0.6);
+      }
+      for(const [bx,by] of [[-5,-16],[5,-14],[-3,-19],[4,-18]]){
+        for(let i=0;i<4;i++){
+          px(T2X+bx*i/4, TREE_BASE+by+i*(-0.2), 35,28,20, 0.4);
+        }
+      }
+
+      // Theo curled up sleeping on the surface near a rock
+      const tx=108, ty=GROUND_Y-5;
+
+      // Small rock
+      for(let dx=-4;dx<=4;dx++){
+        for(let dy=-2;dy<=1;dy++){
+          if(dx*dx/16+dy*dy/4<1)
+            px(tx-12+dx,ty+2+dy, 50,48,45, 0.8);
+        }
+      }
+
+      // Theo body (curled ball)
+      for(let dx=-4;dx<=4;dx++){
+        for(let dy=-3;dy<=2;dy++){
+          const dist = dx*dx/16+dy*dy/9;
+          if(dist<=1){
+            px(tx+dx,ty+dy, 75,70,65, 0.9);
+          }
+        }
+      }
+      // Head tucked in
+      for(let dx=-2;dx<=2;dx++){
+        for(let dy=-2;dy<=1;dy++){
+          if(dx*dx+dy*dy<=5)
+            px(tx-3+dx,ty-2+dy, 85,80,75, 0.9);
+        }
+      }
+      // Ear tips
+      px(tx-5,ty-4,85,80,75); px(tx-4,ty-4,85,80,75);
+      // Eye mask (closed eyes)
+      px(tx-4,ty-2,30,28,25,0.8); px(tx-3,ty-2,30,28,25,0.8);
+      // Tail wrapped around
+      const tailB = Math.sin(t*0.015)*0.5;
+      px(tx+4,ty+1,80,75,70); px(tx+5,ty+tailB,85,80,75);
+      px(tx+5,ty+1+tailB,80,75,70);
+
+      // Breathing animation — subtle rise/fall
+      const breath = Math.sin(t*0.025)*0.5;
+      px(tx,ty-3+breath, 80,75,70, 0.4);
+
+      // Snow on Theo
+      px(tx-2,ty-4,210,215,220,0.5);
+      px(tx+1,ty-3,210,215,220,0.4);
+      px(tx+3,ty-2,210,215,220,0.3);
+
+      // Faint connection line between Theo and seed (invisible bond)
+      const connAlpha = 0.03+Math.sin(t*0.015)*0.02;
+      ctx.strokeStyle=`rgba(200,160,60,${connAlpha})`;
+      ctx.lineWidth=0.5;
+      ctx.setLineDash([2,3]);
+      ctx.beginPath();
+      ctx.moveTo(tx,ty+3);
+      ctx.lineTo(SEED_X,SEED_Y-4);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
   // ============ PIXEL ART: Day 72 - Dispersal (Scattering and Departure) ============
   (function(){
     const c = document.getElementById('pixel-day72');
