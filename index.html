@@ -2205,6 +2205,208 @@
     }
     draw();
   })();
+  // ============ GENERATIVE ART: Day 75 - Phototropism (Bending / Seeking) ============
+  (function(){
+    const c = document.getElementById('pixel-day75');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    const W=160, H=120;
+    let t=0;
+
+    // Light source position (upper right, pulsing gently)
+    function lightX(){ return 135 + Math.sin(t*0.005)*5; }
+    function lightY(){ return 20 + Math.cos(t*0.007)*3; }
+
+    // Seedling stem — curve bends toward light over time
+    function drawStem(){
+      const baseX=65, baseY=110;
+      const bendProgress = Math.min(1, t/200);
+      const targetX = lightX();
+      const segments = 20;
+
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY);
+      for(let i=1;i<=segments;i++){
+        const frac = i/segments;
+        // Cubic bezier-like curve bending toward light
+        const straightX = baseX;
+        const straightY = baseY - frac*70;
+        const bendX = straightX + (targetX - straightX) * frac * frac * bendProgress * 0.4;
+        const bendY = straightY + Math.sin(frac*Math.PI)*5*bendProgress;
+        ctx.lineTo(bendX, bendY);
+      }
+      // Stem gradient - darker at base, greener at top
+      ctx.strokeStyle='rgba(70,160,60,0.9)';
+      ctx.lineWidth=2.5;
+      ctx.stroke();
+
+      // Draw leaves at intervals along stem
+      for(let i=0;i<3;i++){
+        const leafFrac = 0.4 + i*0.2;
+        const frac=leafFrac;
+        const sx = baseX + (targetX-baseX)*frac*frac*bendProgress*0.4;
+        const sy = (baseY - frac*70) + Math.sin(frac*Math.PI)*5*bendProgress;
+        const leafAngle = Math.atan2(lightY()-sy, lightX()-sx);
+        const leafSize = 4+i*2;
+        const leafAlpha = Math.min(1,(t-60-i*30)/60);
+        if(leafAlpha<=0) continue;
+        ctx.save();
+        ctx.translate(sx,sy);
+        ctx.rotate(leafAngle + (i%2?0.3:-0.3));
+        ctx.fillStyle=`rgba(80,180,50,${leafAlpha*0.8})`;
+        ctx.beginPath();
+        ctx.ellipse(leafSize*0.7,0, leafSize, leafSize*0.4, 0, 0, Math.PI*2);
+        ctx.fill();
+        // Leaf vein
+        ctx.strokeStyle=`rgba(50,120,30,${leafAlpha*0.5})`;
+        ctx.lineWidth=0.5;
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.lineTo(leafSize*1.4,0);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Return tip position for particles
+      const tipFrac=1;
+      return {
+        x: baseX + (targetX-baseX)*tipFrac*tipFrac*bendProgress*0.4,
+        y: (baseY - tipFrac*70) + Math.sin(tipFrac*Math.PI)*5*bendProgress
+      };
+    }
+
+    // Auxin particles flowing down shaded side
+    const auxinParticles = [];
+    for(let i=0;i<15;i++){
+      auxinParticles.push({
+        frac: Math.random(), phase: Math.random()*Math.PI*2,
+        speed: 0.003+Math.random()*0.004, size: 1+Math.random()*1.5
+      });
+    }
+
+    // Light rays
+    const rays = [];
+    for(let i=0;i<6;i++){
+      rays.push({ angle: -Math.PI*0.6 + i*0.15, length: 30+Math.random()*20, phase: Math.random()*Math.PI*2 });
+    }
+
+    // Theo sitting at base watching
+    function drawTheo(){
+      const theoAlpha = Math.min(1,(t-80)/60);
+      if(theoAlpha<=0) return;
+      const tx=95, ty=105;
+      // Body
+      ctx.fillStyle=`rgba(85,80,75,${theoAlpha*0.9})`;
+      ctx.beginPath();
+      ctx.ellipse(tx,ty,5,4,0,0,Math.PI*2);
+      ctx.fill();
+      // Head - looking up at the curve
+      ctx.fillStyle=`rgba(95,88,82,${theoAlpha*0.95})`;
+      ctx.beginPath();
+      ctx.arc(tx-2,ty-4,3,0,Math.PI*2);
+      ctx.fill();
+      // Ears
+      ctx.fillStyle=`rgba(95,88,82,${theoAlpha})`;
+      ctx.fillRect(tx-4,ty-8,1.5,2);
+      ctx.fillRect(tx-1,ty-8,1.5,2);
+      // Eye mask
+      ctx.fillStyle=`rgba(30,28,25,${theoAlpha*0.9})`;
+      ctx.fillRect(tx-4,ty-5,4,1.5);
+      // Eyes looking up-right toward light
+      ctx.fillStyle=`rgba(220,190,60,${theoAlpha*0.9})`;
+      ctx.fillRect(tx-3.5,ty-4.5,1,1);
+      ctx.fillRect(tx-1.5,ty-4.5,1,1);
+      // Tail
+      ctx.strokeStyle=`rgba(80,75,70,${theoAlpha*0.7})`;
+      ctx.lineWidth=1.2;
+      ctx.beginPath();
+      ctx.arc(tx+5,ty+1,3,0,Math.PI*0.8);
+      ctx.stroke();
+    }
+
+    function draw(){
+      t++;
+      ctx.clearRect(0,0,W,H);
+
+      // Background gradient - soft dusk/dawn
+      for(let y=0;y<H;y++){
+        const f=y/H;
+        const r=15+f*10, g=18+f*8, b=35-f*15;
+        ctx.fillStyle=`rgb(${r|0},${g|0},${b|0})`;
+        ctx.fillRect(0,y,W,1);
+      }
+
+      // Light source glow
+      const lx=lightX(), ly=lightY();
+      const glowPulse = 0.7+Math.sin(t*0.03)*0.2;
+      const grad = ctx.createRadialGradient(lx,ly,0, lx,ly, 40);
+      grad.addColorStop(0, `rgba(255,240,180,${glowPulse*0.8})`);
+      grad.addColorStop(0.3, `rgba(255,220,100,${glowPulse*0.3})`);
+      grad.addColorStop(1, 'rgba(255,220,100,0)');
+      ctx.fillStyle=grad;
+      ctx.fillRect(lx-45,ly-45,90,90);
+
+      // Light rays
+      for(const ray of rays){
+        const alpha = (0.2+Math.sin(t*0.02+ray.phase)*0.15)*glowPulse;
+        ctx.strokeStyle=`rgba(255,230,130,${alpha})`;
+        ctx.lineWidth=0.8;
+        ctx.beginPath();
+        ctx.moveTo(lx,ly);
+        ctx.lineTo(lx+Math.cos(ray.angle)*ray.length, ly+Math.sin(ray.angle)*ray.length);
+        ctx.stroke();
+      }
+
+      // Soil at bottom
+      ctx.fillStyle='rgba(30,22,15,0.9)';
+      ctx.fillRect(0,108,W,12);
+      // Soil texture
+      for(let i=0;i<20;i++){
+        ctx.fillStyle=`rgba(45,35,25,${0.3+Math.random()*0.2})`;
+        ctx.fillRect((i*8+t*0.01)%W, 109+Math.random()*10, 2, 1);
+      }
+
+      // Draw stem
+      const tip = drawStem();
+
+      // Auxin visualization - small dots flowing on shaded side
+      if(t>40){
+        for(const p of auxinParticles){
+          p.frac += p.speed;
+          if(p.frac>1) p.frac=0;
+          // Position along stem, offset to shaded (left) side
+          const baseX=65, baseY=110;
+          const bendProgress = Math.min(1, t/200);
+          const sx = baseX + (lightX()-baseX)*p.frac*p.frac*bendProgress*0.4 - 4 - Math.sin(p.phase+t*0.02)*2;
+          const sy = (baseY - p.frac*70) + Math.sin(p.frac*Math.PI)*5*bendProgress;
+          const alpha = Math.sin(p.frac*Math.PI)*0.6;
+          ctx.fillStyle=`rgba(180,120,220,${alpha})`;
+          ctx.beginPath();
+          ctx.arc(sx,sy,p.size*0.6,0,Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      // Photon particles drifting from light to plant
+      if(t>20){
+        for(let i=0;i<5;i++){
+          const phase = t*0.01+i*1.3;
+          const px = lx + Math.cos(phase*0.7+i)*3 + (tip.x-lx)*(((t+i*40)%120)/120);
+          const py = ly + Math.sin(phase*0.5+i)*3 + (tip.y-ly)*(((t+i*40)%120)/120);
+          const pAlpha = Math.sin(((t+i*40)%120)/120*Math.PI)*0.5;
+          ctx.fillStyle=`rgba(255,240,150,${pAlpha})`;
+          ctx.beginPath();
+          ctx.arc(px,py,1,0,Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      drawTheo();
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
   // ============ GENERATIVE ART: Day 74 - Germination (Cracking / Becoming) ============
   (function(){
     const c = document.getElementById('pixel-day74');
